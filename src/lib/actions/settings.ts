@@ -24,6 +24,9 @@ const schema = z.object({
   heroCtaSecondaryUrl: z.string().trim().min(1),
   newsletterEnabled: z.coerce.boolean(),
   bookingUrl: z.string().trim().optional(),
+  whatsapp: z.string().trim().max(30).optional(),
+  serviceArea: z.string().trim().max(200).optional(),
+  supportPromise: z.string().trim().max(200).optional(),
 });
 
 export type SettingsFormState = {
@@ -56,6 +59,9 @@ export async function updateSiteSettings(
     heroCtaSecondaryUrl: formData.get("heroCtaSecondaryUrl"),
     newsletterEnabled: formData.get("newsletterEnabled"),
     bookingUrl: formData.get("bookingUrl"),
+    whatsapp: formData.get("whatsapp"),
+    serviceArea: formData.get("serviceArea"),
+    supportPromise: formData.get("supportPromise"),
   });
 
   if (!parsed.success) {
@@ -73,10 +79,24 @@ export async function updateSiteSettings(
     .map((label, i) => ({ label: label.trim(), value: values[i]?.trim() ?? "" }))
     .filter((m) => m.label && m.value);
 
+  const logoNames = formData.getAll("trustLogoName").map(String);
+  const logoImages = formData.getAll("trustLogoImage").map(String);
+  const trustLogos = logoNames
+    .map((name, i) => ({ name: name.trim(), image: logoImages[i]?.trim() ?? "" }))
+    .filter((l) => l.name || l.image);
+
+  const extra = {
+    bookingUrl: parsed.data.bookingUrl || null,
+    whatsapp: parsed.data.whatsapp || null,
+    serviceArea: parsed.data.serviceArea || null,
+    supportPromise: parsed.data.supportPromise || null,
+    trustLogos: JSON.stringify(trustLogos),
+  };
+
   await prisma.siteSettings.upsert({
     where: { id: "main" },
-    update: { ...parsed.data, bookingUrl: parsed.data.bookingUrl || null, metrics: JSON.stringify(metrics) },
-    create: { id: "main", ...parsed.data, bookingUrl: parsed.data.bookingUrl || null, metrics: JSON.stringify(metrics) },
+    update: { ...parsed.data, ...extra, metrics: JSON.stringify(metrics) },
+    create: { id: "main", ...parsed.data, ...extra, metrics: JSON.stringify(metrics) },
   });
 
   await logActivity({

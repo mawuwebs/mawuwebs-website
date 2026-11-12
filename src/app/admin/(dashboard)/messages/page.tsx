@@ -74,7 +74,7 @@ export default async function MessagesPage({
           <Link href={href({ type: undefined })} className={pill(!type)}>
             Any type
           </Link>
-          {(["brief", "estimate", "message"] as const).map((k) => (
+          {(["support", "brief", "estimate", "message"] as const).map((k) => (
             <Link key={k} href={href({ type: k })} className={pill(type === k)}>
               {KIND_LABEL[k]}
             </Link>

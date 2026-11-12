@@ -1,5 +1,6 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
@@ -50,8 +51,11 @@ async function main() {
   console.log("Seeding database...");
 
   // --- Users ---
-  const adminPassword = await bcrypt.hash("Admin123!", 10);
-  const editorPassword = await bcrypt.hash("Editor123!", 10);
+  // Never ship known passwords. Set SEED_ADMIN_PASSWORD / SEED_EDITOR_PASSWORD, or random ones are generated and printed once.
+  const adminPlain = process.env.SEED_ADMIN_PASSWORD ?? randomBytes(9).toString("base64url");
+  const editorPlain = process.env.SEED_EDITOR_PASSWORD ?? randomBytes(9).toString("base64url");
+  const adminPassword = await bcrypt.hash(adminPlain, 10);
+  const editorPassword = await bcrypt.hash(editorPlain, 10);
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@mawuwebs.com" },
@@ -163,7 +167,7 @@ async function main() {
       title: "Web Development",
       icon: "Code2",
       description: "Fast, scalable, and secure websites and web applications built on modern frameworks.",
-      content: `<p>We build custom websites and web applications engineered for performance, scalability, and long-term maintainability. From marketing sites to complex internal tools, our engineering team uses modern frameworks like Next.js and React to deliver experiences that load fast and rank well.</p><h3>What's included</h3><ul><li>Custom front-end and back-end development</li><li>API design and third-party integrations</li><li>Performance optimization and Core Web Vitals tuning</li><li>Ongoing maintenance and support plans</li></ul>`,
+      content: `<p>We build custom websites and web applications engineered for performance, scalability, and long-term maintainability. From marketing sites to complex internal tools, our engineering team uses modern frameworks like Next.js and React to deliver experiences that load fast and rank well.</p><h2>What's included</h2><ul><li>Custom front-end and back-end development</li><li>API design and third-party integrations</li><li>Performance optimization and Core Web Vitals tuning</li><li>Ongoing maintenance and support plans</li></ul>`,
       featured: true,
       order: 4,
       image: img("coding,laptop", 301),
@@ -172,7 +176,7 @@ async function main() {
       title: "UI/UX Design",
       icon: "Palette",
       description: "Human-centered design that turns visitors into loyal customers.",
-      content: `<p>Great design is invisible — it just works. Our design team researches your users, maps their journeys, and crafts interfaces that are intuitive, accessible, and on-brand.</p><h3>What's included</h3><ul><li>User research and journey mapping</li><li>Wireframing and interactive prototypes</li><li>Design systems and component libraries</li><li>Usability testing</li></ul>`,
+      content: `<p>Great design is invisible — it just works. Our design team researches your users, maps their journeys, and crafts interfaces that are intuitive, accessible, and on-brand.</p><h2>What's included</h2><ul><li>User research and journey mapping</li><li>Wireframing and interactive prototypes</li><li>Design systems and component libraries</li><li>Usability testing</li></ul>`,
       featured: false,
       order: 6,
       image: img("uxdesign", 504),
@@ -181,7 +185,7 @@ async function main() {
       title: "E-Commerce Solutions",
       icon: "ShoppingCart",
       description: "Conversion-focused online stores that turn browsers into buyers.",
-      content: `<p>We build e-commerce experiences that make it effortless to buy — from product discovery to checkout. Whether you need a headless storefront or a full platform migration, we've got you covered.</p><h3>What's included</h3><ul><li>Custom storefronts on modern headless commerce platforms</li><li>Payment gateway and inventory integrations</li><li>Cart and checkout optimization</li><li>Analytics and conversion tracking</li></ul>`,
+      content: `<p>We build e-commerce experiences that make it effortless to buy — from product discovery to checkout. Whether you need a headless storefront or a full platform migration, we've got you covered.</p><h2>What's included</h2><ul><li>Custom storefronts on modern headless commerce platforms</li><li>Payment gateway and inventory integrations</li><li>Cart and checkout optimization</li><li>Analytics and conversion tracking</li></ul>`,
       featured: false,
       order: 7,
       image: img("laptop,typing", 704),
@@ -190,7 +194,7 @@ async function main() {
       title: "Cloud & DevOps",
       icon: "Cloud",
       description: "Reliable infrastructure and deployment pipelines that scale with you.",
-      content: `<p>We design cloud infrastructure that scales automatically and deploys safely. Our DevOps practices reduce downtime and let your team ship with confidence.</p><h3>What's included</h3><ul><li>Cloud architecture and infrastructure as code</li><li>CI/CD pipeline setup</li><li>Monitoring, logging, and alerting</li><li>Security hardening and audits</li></ul>`,
+      content: `<p>We design cloud infrastructure that scales automatically and deploys safely. Our DevOps practices reduce downtime and let your team ship with confidence.</p><h2>What's included</h2><ul><li>Cloud architecture and infrastructure as code</li><li>CI/CD pipeline setup</li><li>Monitoring, logging, and alerting</li><li>Security hardening and audits</li></ul>`,
       featured: true,
       order: 9,
       image: img("networking,server", 749),
@@ -199,7 +203,7 @@ async function main() {
       title: "SEO & Digital Marketing",
       icon: "TrendingUp",
       description: "Data-driven strategies that increase organic traffic and qualified leads.",
-      content: `<p>Being built well isn't enough — you need to be found. We combine technical SEO with content strategy to help your site climb search rankings and convert more visitors.</p><h3>What's included</h3><ul><li>Technical SEO audits</li><li>Keyword and content strategy</li><li>Local SEO and Google Business optimization</li><li>Monthly performance reporting</li></ul>`,
+      content: `<p>Being built well isn't enough — you need to be found. We combine technical SEO with content strategy to help your site climb search rankings and convert more visitors.</p><h2>What's included</h2><ul><li>Technical SEO audits</li><li>Keyword and content strategy</li><li>Local SEO and Google Business optimization</li><li>Monthly performance reporting</li></ul>`,
       featured: false,
       order: 10,
       image: img("analytics,dashboard", 726),
@@ -208,7 +212,7 @@ async function main() {
       title: "Mobile App Development",
       icon: "Smartphone",
       description: "Native-quality mobile apps for iOS and Android from a single codebase.",
-      content: `<p>We build cross-platform mobile applications that feel native, perform beautifully, and ship faster than separate iOS/Android codebases.</p><h3>What's included</h3><ul><li>Cross-platform app development</li><li>App Store and Play Store deployment</li><li>Push notifications and offline support</li><li>Ongoing feature development</li></ul>`,
+      content: `<p>We build cross-platform mobile applications that feel native, perform beautifully, and ship faster than separate iOS/Android codebases.</p><h2>What's included</h2><ul><li>Cross-platform app development</li><li>App Store and Play Store deployment</li><li>Push notifications and offline support</li><li>Ongoing feature development</li></ul>`,
       featured: false,
       order: 11,
       image: img("smartphone,app", 306),
@@ -217,7 +221,7 @@ async function main() {
       title: "IT Support & Managed Services",
       icon: "Headset",
       description: "Responsive help desk and proactive care so your people can keep working.",
-      content: `<p>When a laptop dies or email stops working, work stops. We give your team a number to call and someone who picks up, and we look after your systems before things break.</p><h3>What's included</h3><ul><li>Help desk and remote support for staff</li><li>On-site visits when a problem needs hands</li><li>User accounts, email and software administration</li><li>Monitoring, updates and patching</li><li>Monthly plans or pay-as-you-go support</li></ul>`,
+      content: `<p>When a laptop dies or email stops working, work stops. We give your team a number to call and someone who picks up, and we look after your systems before things break.</p><h2>What's included</h2><ul><li>Help desk and remote support for staff</li><li>On-site visits when a problem needs hands</li><li>User accounts, email and software administration</li><li>Monitoring, updates and patching</li><li>Monthly plans or pay-as-you-go support</li></ul>`,
       featured: true,
       order: 1,
       image: "/images/seed/laptop-desk.jpg",
@@ -226,7 +230,7 @@ async function main() {
       title: "Networking & Infrastructure",
       icon: "Network",
       description: "Reliable wired and Wi-Fi networks, servers and structured cabling, designed and installed.",
-      content: `<p>A good network is invisible. A bad one costs hours every week. We plan, install and maintain networks that stay fast and stay up.</p><h3>What's included</h3><ul><li>Office LAN and Wi-Fi design and installation</li><li>Structured cabling and server rooms</li><li>Routers, switches, firewalls and access points</li><li>Internet failover and VPN for remote staff</li><li>Network audits and troubleshooting</li></ul>`,
+      content: `<p>A good network is invisible. A bad one costs hours every week. We plan, install and maintain networks that stay fast and stay up.</p><h2>What's included</h2><ul><li>Office LAN and Wi-Fi design and installation</li><li>Structured cabling and server rooms</li><li>Routers, switches, firewalls and access points</li><li>Internet failover and VPN for remote staff</li><li>Network audits and troubleshooting</li></ul>`,
       featured: true,
       order: 2,
       image: "/images/seed/networking-server.jpg",
@@ -235,7 +239,7 @@ async function main() {
       title: "Cybersecurity",
       icon: "ShieldCheck",
       description: "Practical protection for your devices, accounts and data, without the jargon.",
-      content: `<p>Most attacks succeed through simple gaps: weak passwords, unpatched software, an email that looked real. We close those gaps and help your team spot the rest.</p><h3>What's included</h3><ul><li>Security assessments and risk reviews</li><li>Endpoint protection, firewalls and email filtering</li><li>Multi-factor authentication and access control</li><li>Staff awareness training</li><li>Incident response and recovery help</li></ul>`,
+      content: `<p>Most attacks succeed through simple gaps: weak passwords, unpatched software, an email that looked real. We close those gaps and help your team spot the rest.</p><h2>What's included</h2><ul><li>Security assessments and risk reviews</li><li>Endpoint protection, firewalls and email filtering</li><li>Multi-factor authentication and access control</li><li>Staff awareness training</li><li>Incident response and recovery help</li></ul>`,
       featured: true,
       order: 3,
       image: "/images/seed/server-datacenter.jpg",
@@ -244,7 +248,7 @@ async function main() {
       title: "Hardware & Equipment",
       icon: "Laptop",
       description: "Advice, supply and setup for computers, printers and business equipment.",
-      content: `<p>Buying the wrong equipment is expensive. We recommend what your team actually needs, supply it, and set it up so it works from day one.</p><h3>What's included</h3><ul><li>Laptops, desktops, monitors and peripherals</li><li>Printers, scanners and point-of-sale hardware</li><li>Installation, configuration and data migration</li><li>Warranty handling and repairs</li><li>Equipment refresh planning</li></ul>`,
+      content: `<p>Buying the wrong equipment is expensive. We recommend what your team actually needs, supply it, and set it up so it works from day one.</p><h2>What's included</h2><ul><li>Laptops, desktops, monitors and peripherals</li><li>Printers, scanners and point-of-sale hardware</li><li>Installation, configuration and data migration</li><li>Warranty handling and repairs</li><li>Equipment refresh planning</li></ul>`,
       featured: true,
       order: 5,
       image: "/images/seed/computer-keyboard.jpg",
@@ -253,7 +257,7 @@ async function main() {
       title: "Backup & Disaster Recovery",
       icon: "HardDrive",
       description: "Make sure one failure, theft or mistake never costs you your data.",
-      content: `<p>Backups only matter on the day you need them. We set them up properly, test that they restore, and plan how your business carries on if something goes wrong.</p><h3>What's included</h3><ul><li>Automated on-site and cloud backups</li><li>Restore testing so you know it works</li><li>Business continuity and recovery planning</li><li>Data migration between systems</li><li>Ransomware recovery support</li></ul>`,
+      content: `<p>Backups only matter on the day you need them. We set them up properly, test that they restore, and plan how your business carries on if something goes wrong.</p><h2>What's included</h2><ul><li>Automated on-site and cloud backups</li><li>Restore testing so you know it works</li><li>Business continuity and recovery planning</li><li>Data migration between systems</li><li>Ransomware recovery support</li></ul>`,
       featured: false,
       order: 8,
       image: "/images/seed/office-workspace.jpg",
@@ -262,7 +266,7 @@ async function main() {
       title: "IT Consulting & Training",
       icon: "Briefcase",
       description: "Independent advice on technology decisions, plus training that makes it stick.",
-      content: `<p>Not sure what to buy, build or switch to? We give honest, vendor-neutral advice, then help your team get comfortable with the tools you choose.</p><h3>What's included</h3><ul><li>IT strategy and technology roadmaps</li><li>Software and vendor selection</li><li>Cost and licence reviews</li><li>Staff training and documentation</li><li>Project management for IT rollouts</li></ul>`,
+      content: `<p>Not sure what to buy, build or switch to? We give honest, vendor-neutral advice, then help your team get comfortable with the tools you choose.</p><h2>What's included</h2><ul><li>IT strategy and technology roadmaps</li><li>Software and vendor selection</li><li>Cost and licence reviews</li><li>Staff training and documentation</li><li>Project management for IT rollouts</li></ul>`,
       featured: false,
       order: 12,
       image: "/images/seed/meeting-laptop.jpg",
@@ -587,8 +591,9 @@ async function main() {
   }
 
   console.log("Seed complete.");
-  console.log("Admin login: admin@mawuwebs.com / Admin123!");
-  console.log("Editor login: editor@mawuwebs.com / Editor123!");
+  console.log("Logins (only applies to users created by this run; existing users keep their password):");
+  console.log(`  admin@mawuwebs.com  / ${adminPlain}`);
+  console.log(`  editor@mawuwebs.com / ${editorPlain}`);
 }
 
 function slugify(text: string) {

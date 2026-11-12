@@ -9,19 +9,22 @@ export function ServiceCard({
   description,
   icon,
   className,
+  headingLevel = 3,
 }: {
   title: string;
   slug: string;
   description: string;
   icon?: string | null;
   className?: string;
+  headingLevel?: 2 | 3;
 }) {
   const Icon = getIcon(icon);
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
     <Link
       href={`/services/${slug}`}
       className={cn(
-        "group spotlight relative flex flex-col rounded-2xl border border-border bg-card p-7 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10",
+        "group spotlight relative flex flex-col rounded-2xl border border-border bg-card p-7 transition-all duration-300 ease-out motion-safe:hover:-translate-y-1.5 hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10",
         className
       )}
     >
@@ -30,7 +33,7 @@ export function ServiceCard({
         {/* eslint-disable-next-line react-hooks/static-components */}
         <Icon className="size-6" />
       </div>
-      <h3 className="mt-5 font-display text-lg font-semibold">{title}</h3>
+      <Heading className="mt-5 font-display text-lg font-semibold">{title}</Heading>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
       <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent">
         Learn more

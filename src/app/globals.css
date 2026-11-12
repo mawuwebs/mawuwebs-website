@@ -17,7 +17,7 @@
      --brand-orange itself is ~2.1:1 on white and fails WCAG AA for text, so it's
      reserved for decorative fills (logo, chart series, large blocks paired with
      navy text) — never as small text/icon color on a light surface. */
-  --brand-orange-ink: #ad6505;
+  --brand-orange-ink: #9c5c04;
 
   --background: #ffffff;
   --foreground: #0a0f1f;
@@ -79,7 +79,7 @@
   --muted: #10172f;
   --muted-foreground: #9aa2ba;
   --accent: var(--brand-orange);
-  --accent-foreground: #ffffff;
+  --accent-foreground: var(--brand-forest-dark);
 
   --destructive: #f97066;
   --destructive-foreground: #1a0402;

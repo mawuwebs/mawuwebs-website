@@ -13,7 +13,14 @@ type ProjectWithRelations = ProjectModel & {
   tags?: TagModel[];
 };
 
-export function ProjectCard({ project }: { project: ProjectWithRelations }) {
+export function ProjectCard({
+  project,
+  headingLevel = 3,
+}: {
+  project: ProjectWithRelations;
+  headingLevel?: 2 | 3;
+}) {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
     <Link
       href={`/portfolio/${project.slug}`}
@@ -39,7 +46,7 @@ export function ProjectCard({ project }: { project: ProjectWithRelations }) {
         )}
       </div>
       <div className="flex flex-1 flex-col p-6">
-        <h3 className="font-display text-lg font-semibold">{project.title}</h3>
+        <Heading className="font-display text-lg font-semibold">{project.title}</Heading>
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
           {project.description}
         </p>

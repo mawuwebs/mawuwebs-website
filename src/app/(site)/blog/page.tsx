@@ -137,7 +137,7 @@ export default async function BlogPage({
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {listPosts.map((post, i) => (
             <Reveal key={post.id} delay={i * 80}>
-              <BlogCard post={post} />
+              <BlogCard post={post} headingLevel={2} />
             </Reveal>
           ))}
         </div>

@@ -6,7 +6,14 @@ import type { PostModel, CategoryModel } from "@/generated/prisma/models";
 
 type PostWithRelations = PostModel & { category?: CategoryModel | null };
 
-export function BlogCard({ post }: { post: PostWithRelations }) {
+export function BlogCard({
+  post,
+  headingLevel = 3,
+}: {
+  post: PostWithRelations;
+  headingLevel?: 2 | 3;
+}) {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
     <Link
       href={`/blog/${post.slug}`}
@@ -37,9 +44,9 @@ export function BlogCard({ post }: { post: PostWithRelations }) {
             {format(post.publishedAt, "MMMM d, yyyy")}
           </time>
         )}
-        <h3 className="mt-2 font-display text-lg font-semibold text-balance group-hover:text-accent">
+        <Heading className="mt-2 font-display text-lg font-semibold text-balance group-hover:text-accent">
           {post.title}
-        </h3>
+        </Heading>
         <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{post.excerpt}</p>
       </div>
     </Link>

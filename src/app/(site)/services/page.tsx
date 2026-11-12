@@ -7,6 +7,9 @@ import { CtaBanner } from "@/components/site/cta-banner";
 import { Reveal } from "@/components/site/reveal";
 import { Pagination } from "@/components/site/pagination";
 import { getPublishedServices, getPublishedServicesCount } from "@/lib/content";
+import { SERVICE_CATEGORIES } from "@/lib/service-categories";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Services",
@@ -19,13 +22,14 @@ const PAGE_SIZE = 12;
 export default async function ServicesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; group?: string }>;
 }) {
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, group: groupParam } = await searchParams;
+  const group = (SERVICE_CATEGORIES as readonly string[]).includes(groupParam ?? "") ? groupParam : undefined;
   const page = Math.max(1, Number(pageParam) || 1);
   const [services, total] = await Promise.all([
-    getPublishedServices({ page, pageSize: PAGE_SIZE }),
-    getPublishedServicesCount(),
+    getPublishedServices({ page, pageSize: PAGE_SIZE, group }),
+    getPublishedServicesCount({ group }),
   ]);
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -39,10 +43,25 @@ export default async function ServicesPage({
       />
 
       <Section>
+        <div className="mb-10 flex flex-wrap gap-2" aria-label="Filter services">
+          {[undefined, ...SERVICE_CATEGORIES].map((c) => (
+            <Link
+              key={c ?? "all"}
+              href={c ? `/services?group=${encodeURIComponent(c)}` : "/services"}
+              className={cn(
+                "rounded-full border px-4 py-1.5 text-sm transition-colors",
+                group === c ? "border-forest bg-forest text-white" : "border-border hover:border-foreground/30"
+              )}
+            >
+              {c ?? "All services"}
+            </Link>
+          ))}
+        </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((service, i) => (
             <Reveal key={service.id} delay={i * 80}>
               <ServiceCard
+                headingLevel={2}
                 title={service.title}
                 slug={service.slug}
                 description={service.description}
@@ -56,7 +75,7 @@ export default async function ServicesPage({
             Services will appear here once published.
           </p>
         )}
-        <Pagination currentPage={page} totalPages={totalPages} basePath="/services" />
+        <Pagination currentPage={page} totalPages={totalPages} basePath="/services" searchParams={{ group }} />
       </Section>
 
       <CtaBanner

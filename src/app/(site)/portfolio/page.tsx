@@ -74,7 +74,7 @@ export default async function PortfolioPage({
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:[&>*:nth-child(3n+1):last-child]:col-start-2">
           {projects.map((project, i) => (
             <Reveal key={project.id} delay={i * 80}>
-              <ProjectCard project={project} />
+              <ProjectCard project={project} headingLevel={2} />
             </Reveal>
           ))}
         </div>

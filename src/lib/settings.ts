@@ -2,6 +2,7 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 
 export type Metric = { label: string; value: string };
+export type TrustLogo = { name: string; image: string };
 
 const DEFAULTS = {
   id: "main",
@@ -24,6 +25,11 @@ const DEFAULTS = {
   heroImage: null as string | null,
   metrics: "[]",
   newsletterEnabled: true,
+  bookingUrl: null as string | null,
+  whatsapp: null as string | null,
+  serviceArea: null as string | null,
+  supportPromise: null as string | null,
+  trustLogos: "[]",
 };
 
 export const getSiteSettings = cache(async () => {
@@ -40,7 +46,14 @@ export const getSiteSettings = cache(async () => {
     metrics = [];
   }
 
-  return { ...settings, metricsList: metrics };
+  let trustLogosList: TrustLogo[] = [];
+  try {
+    trustLogosList = JSON.parse(settings.trustLogos);
+  } catch {
+    trustLogosList = [];
+  }
+
+  return { ...settings, metricsList: metrics, trustLogosList };
 });
 
 export const getSocialLinks = cache(async () => {

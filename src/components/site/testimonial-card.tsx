@@ -43,7 +43,7 @@ export function TestimonialCard({
           </div>
         </figcaption>
       </div>
-      <div className="mt-4 flex gap-0.5" aria-label={`${testimonial.rating} out of 5 stars`}>
+      <div className="mt-4 flex gap-0.5" role="img" aria-label={`${testimonial.rating} out of 5 stars`}>
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
             key={i}

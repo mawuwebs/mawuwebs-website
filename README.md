@@ -30,8 +30,8 @@ Visit:
 
 | Role   | Email                    | Password    |
 | ------ | ------------------------ | ----------- |
-| Admin  | admin@mawuwebs.com       | Admin123!   |
-| Editor | editor@mawuwebs.com      | Editor123!  |
+| Admin  | admin@mawuwebs.com       | printed by `npm run db:seed` (or set `SEED_ADMIN_PASSWORD`) |
+| Editor | editor@mawuwebs.com      | printed by `npm run db:seed` (or set `SEED_EDITOR_PASSWORD`) |
 
 Change these in production — either edit them from **Admin → Users**, or update `prisma/seed.ts` before re-seeding.
 
@@ -94,6 +94,21 @@ Draft content never appears on the public site — all public queries (`src/lib/
 | `npm run db:seed`    | Seed the database with demo content           |
 | `npm run db:studio`  | Open Prisma Studio (visual DB browser)        |
 | `npm run db:generate`| Regenerate the Prisma client after schema changes |
+
+## Going live checklist
+
+1. **Environment** (see `.env.example`): `DATABASE_URL`, `AUTH_SECRET` (`openssl rand -base64 32`), `AUTH_URL` and `NEXTAUTH_URL` (your https domain), SMTP settings, `NOTIFY_EMAIL`, optional `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`, `CRON_SECRET`.
+2. **Change the demo admin passwords**: `npm run admin:password -- admin@mawuwebs.com 'a-long-new-password'`. Do the same for the editor, or delete that user in Admin > Users.
+3. **Replace demo content** in the admin: address, phone, WhatsApp number, service area, support promise, hero stats, testimonials, projects, blog posts, and the privacy / terms pages (have them reviewed).
+4. **Database**: SQLite (`dev.db`) is for development. On a host without a persistent disk, move to PostgreSQL/MySQL: change the datasource in `prisma/schema.prisma`, the adapter in `src/lib/prisma.ts`, then `npx prisma migrate deploy`.
+5. **Uploads** go to `public/uploads`. Make sure that folder persists across deploys, or move uploads to object storage.
+6. **Build and run**: `npm run build && npm start` (Node 20+). After changing `prisma/schema.prisma` run `npx prisma generate` and restart the server, otherwise it keeps the old client.
+7. **Weekly digest**: have a scheduler call `GET /api/cron/digest` with header `Authorization: Bearer $CRON_SECRET`.
+8. **Search and sharing**: submit `/sitemap.xml` to Google Search Console and create a Google Business Profile.
+
+## Tests
+
+`npm test` runs the unit tests in `tests/` (estimator scoring, enquiry parsing, table of contents, etc.).
 
 ## Notes on the stack
 

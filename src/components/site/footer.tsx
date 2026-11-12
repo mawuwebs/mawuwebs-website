@@ -28,7 +28,9 @@ const FOOTER_COLUMNS = [
     title: "Services",
     links: [
       { href: "/services", label: "All Services" },
-      { href: "/contact", label: "Get a Quote" },
+      { href: "/support", label: "Get IT Support" },
+      { href: "/plans", label: "Managed IT Plans" },
+      { href: "/start-a-project", label: "Start a Project" },
     ],
   },
   {
@@ -74,6 +76,9 @@ export async function Footer() {
                 <MapPin className="mt-0.5 size-4 shrink-0 text-orange" />
                 <span>{settings.address}</span>
               </li>
+              {settings.serviceArea && (
+                <li className="text-white/60">Serving: {settings.serviceArea}</li>
+              )}
             </ul>
             {socials.length > 0 && (
               <div className="mt-6 flex items-center gap-3">

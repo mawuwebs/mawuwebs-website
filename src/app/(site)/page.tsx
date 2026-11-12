@@ -8,6 +8,8 @@ import { ProjectCard } from "@/components/site/project-card";
 import { TestimonialCard } from "@/components/site/testimonial-card";
 import { CtaBanner } from "@/components/site/cta-banner";
 import { Metrics } from "@/components/site/metrics";
+import { TrustStrip } from "@/components/site/trust-strip";
+import { SupportBand } from "@/components/site/support-band";
 import { Reveal } from "@/components/site/reveal";
 import { Illustration } from "@/components/site/illustrations";
 import { getSiteSettings } from "@/lib/settings";
@@ -34,6 +36,17 @@ export default async function HomePage() {
     telephone: settings.phone,
     address: settings.address,
     url: process.env.AUTH_URL ?? "http://localhost:3000",
+    ...(settings.serviceArea ? { areaServed: settings.serviceArea } : {}),
+    makesOffer: services.map((s) => ({
+      "@type": "Offer",
+      itemOffered: { "@type": "Service", name: s.title, description: s.description },
+    })),
+    contactPoint: {
+      "@type": "ContactPoint",
+      contactType: "customer support",
+      telephone: settings.phone,
+      email: settings.contactEmail,
+    },
   };
 
   return (
@@ -50,6 +63,8 @@ export default async function HomePage() {
         ctaSecondaryText={settings.heroCtaSecondaryText}
         ctaSecondaryUrl={settings.heroCtaSecondaryUrl}
       />
+
+      <TrustStrip logos={settings.trustLogosList} />
 
       {/* Featured services */}
       <Section>
@@ -77,6 +92,8 @@ export default async function HomePage() {
           ))}
         </div>
       </Section>
+
+      <SupportBand whatsapp={settings.whatsapp} promise={settings.supportPromise} />
 
       {/* About preview */}
       <Section className="bg-secondary/50">

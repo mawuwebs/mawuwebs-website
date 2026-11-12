@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Field, SlugField, SeoFieldset } from "@/components/admin/form-fields";
 import { StatusField, SwitchField } from "@/components/admin/status-field";
 import { IconPicker } from "@/components/admin/icon-picker";
+import { SERVICE_CATEGORIES } from "@/lib/service-categories";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { SubmitButton } from "@/components/admin/submit-button";
@@ -86,6 +87,20 @@ export function ServiceForm({ service }: { service?: ServiceModel }) {
               />
             </Field>
             <IconPicker defaultValue={service?.icon ?? "Sparkles"} />
+            <Field label="Category" htmlFor="field-category" hint="Used for the filter tabs on the services page.">
+              <select
+                id="field-category"
+                name="category"
+                defaultValue={service?.category ?? "Software & Web"}
+                className="h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm"
+              >
+                {SERVICE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-6">

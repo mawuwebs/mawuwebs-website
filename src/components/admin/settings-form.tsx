@@ -14,11 +14,12 @@ import { Field } from "@/components/admin/form-fields";
 import { SwitchField } from "@/components/admin/status-field";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { MetricsField } from "@/components/admin/metrics-field";
+import { LogosField } from "@/components/admin/logos-field";
 import { SocialLinksManager } from "@/components/admin/social-links-manager";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { updateSiteSettings, type SettingsFormState } from "@/lib/actions/settings";
 import type { SiteSettingsModel, SocialLinkModel } from "@/generated/prisma/models";
-import type { Metric } from "@/lib/settings";
+import type { Metric, TrustLogo } from "@/lib/settings";
 
 const initialState: SettingsFormState = { success: false, message: "" };
 
@@ -36,6 +37,12 @@ export function SettingsForm({
     metrics = JSON.parse(settings.metrics);
   } catch {
     metrics = [];
+  }
+  let trustLogos: TrustLogo[] = [];
+  try {
+    trustLogos = JSON.parse(settings.trustLogos);
+  } catch {
+    trustLogos = [];
   }
 
   return (
@@ -132,6 +139,7 @@ export function SettingsForm({
             </Field>
           </div>
           <MetricsField defaultValue={metrics} />
+          <LogosField defaultValue={trustLogos} />
         </TabsContent>
 
         <TabsContent value="contact" keepMounted className="space-y-5 rounded-2xl border border-border bg-card p-6">
@@ -175,6 +183,29 @@ export function SettingsForm({
               defaultValue={settings.bookingUrl ?? ""}
               placeholder="https://cal.com/your-name/intro"
             />
+          </Field>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <Field
+              label="WhatsApp number"
+              htmlFor="field-whatsapp"
+              hint="International format, digits only, e.g. 233501234567. Adds WhatsApp buttons across the site."
+            >
+              <Input id="field-whatsapp" name="whatsapp" defaultValue={settings.whatsapp ?? ""} placeholder="233501234567" />
+            </Field>
+            <Field
+              label="Service area"
+              htmlFor="field-serviceArea"
+              hint="Where you work, e.g. “Accra and Tema, remote support nationwide”."
+            >
+              <Input id="field-serviceArea" name="serviceArea" defaultValue={settings.serviceArea ?? ""} />
+            </Field>
+          </div>
+          <Field
+            label="Support promise"
+            htmlFor="field-supportPromise"
+            hint="One honest line about response time, e.g. “Support requests answered within 2 working hours”. Only promise what you deliver."
+          >
+            <Input id="field-supportPromise" name="supportPromise" defaultValue={settings.supportPromise ?? ""} />
           </Field>
         </TabsContent>
 

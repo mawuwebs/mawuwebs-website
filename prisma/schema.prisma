@@ -69,6 +69,7 @@ model Service {
   description     String        @default("")
   content         String        @default("")
   icon            String        @default("Sparkles")
+  category        String        @default("Software & Web")
   featuredImage   String?
   status          ContentStatus @default(DRAFT)
   featured        Boolean       @default(false)
@@ -210,6 +211,10 @@ model SiteSettings {
   metrics               String   @default("[]")
   newsletterEnabled     Boolean  @default(true)
   bookingUrl            String?
+  whatsapp              String?
+  serviceArea           String?
+  supportPromise        String?
+  trustLogos            String   @default("[]")
   updatedAt             DateTime @updatedAt
 }
 

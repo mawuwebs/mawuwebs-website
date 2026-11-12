@@ -81,3 +81,53 @@ export async function unsubscribe(token: string) {
   const res = await prisma.newsletterSubscriber.deleteMany({ where: { token } });
   return res.count > 0;
 }
+
+export type SendState = { success: boolean; message: string };
+
+/** Admin-only: email a message to every confirmed subscriber, each with their own unsubscribe link. */
+export async function sendNewsletter(_prev: SendState, formData: FormData): Promise<SendState> {
+  const { requireAdmin } = await import("@/lib/require-admin");
+  const { logActivity } = await import("@/lib/activity-log");
+  const user = await requireAdmin();
+
+  if (!mailConfigured()) {
+    return { success: false, message: "Email isn't set up yet. Add the SMTP settings to .env first." };
+  }
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  if (subject.length < 3) return { success: false, message: "Add a subject line." };
+  if (body.length < 20) return { success: false, message: "The message is too short." };
+  if (formData.get("confirm") !== "yes") {
+    return { success: false, message: "Tick the box to confirm you want to send this to all subscribers." };
+  }
+
+  const subscribers = await prisma.newsletterSubscriber.findMany({
+    where: { confirmedAt: { not: null }, token: { not: null } },
+    select: { email: true, token: true },
+  });
+  if (subscribers.length === 0) return { success: false, message: "There are no confirmed subscribers yet." };
+
+  let sent = 0;
+  let failed = 0;
+  for (const s of subscribers) {
+    const ok = await sendMail({
+      to: s.email,
+      subject,
+      text: `${body}\n\n--\nYou're receiving this because you subscribed on our website.\nUnsubscribe: ${siteUrl()}/unsubscribe?token=${s.token}`,
+    });
+    if (ok) sent++;
+    else failed++;
+  }
+
+  await logActivity({
+    userId: user.id,
+    action: "published",
+    entityType: "Newsletter",
+    entityId: "broadcast",
+    message: `Sent newsletter "${subject}" to ${sent} subscribers (${failed} failed)`,
+  });
+  return {
+    success: failed === 0,
+    message: `Sent to ${sent} subscriber${sent === 1 ? "" : "s"}${failed ? `, ${failed} failed (check the SMTP settings and logs)` : ""}.`,
+  };
+}

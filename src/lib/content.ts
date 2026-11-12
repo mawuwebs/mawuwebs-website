@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 
-export async function getPublishedServices(opts?: { page?: number; pageSize?: number }) {
+export async function getPublishedServices(opts?: { page?: number; pageSize?: number; group?: string }) {
   return prisma.service.findMany({
-    where: { status: "PUBLISHED" },
+    where: { status: "PUBLISHED", ...(opts?.group ? { category: opts.group } : {}) },
     orderBy: { order: "asc" },
     ...(opts?.pageSize
       ? { skip: ((opts.page ?? 1) - 1) * opts.pageSize, take: opts.pageSize }
@@ -10,8 +10,10 @@ export async function getPublishedServices(opts?: { page?: number; pageSize?: nu
   });
 }
 
-export async function getPublishedServicesCount() {
-  return prisma.service.count({ where: { status: "PUBLISHED" } });
+export async function getPublishedServicesCount(opts?: { group?: string }) {
+  return prisma.service.count({
+    where: { status: "PUBLISHED", ...(opts?.group ? { category: opts.group } : {}) },
+  });
 }
 
 export async function getFeaturedServices(limit = 3) {

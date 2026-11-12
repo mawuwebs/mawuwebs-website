@@ -3,6 +3,7 @@ import { Footer } from "@/components/site/footer";
 import { ScrollProgress } from "@/components/site/scroll-progress";
 import { ScrollPrompt } from "@/components/site/scroll-prompt";
 import { MobileCtaBar } from "@/components/site/mobile-cta-bar";
+import { QuickContact } from "@/components/site/quick-contact";
 import { PointerGlow } from "@/components/site/pointer-glow";
 import { getSiteSettings } from "@/lib/settings";
 
@@ -24,6 +25,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         {children}
       </main>
       <Footer />
+      <QuickContact phone={settings.phone} whatsapp={settings.whatsapp} />
       <MobileCtaBar />
       {settings.newsletterEnabled && <ScrollPrompt />}
     </>

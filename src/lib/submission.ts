@@ -13,17 +13,19 @@ export function statusLabel(status: string) {
   return STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
 }
 
-export type SubmissionKind = "brief" | "estimate" | "message";
+export type SubmissionKind = "brief" | "estimate" | "support" | "message";
 
 export function submissionKind(subject: string): SubmissionKind {
   if (subject === "Project brief") return "brief";
   if (subject === "Project estimate") return "estimate";
+  if (subject === "Support request") return "support";
   return "message";
 }
 
 export const KIND_LABEL: Record<SubmissionKind, string> = {
   brief: "Project brief",
   estimate: "Estimate",
+  support: "Support request",
   message: "Message",
 };
 

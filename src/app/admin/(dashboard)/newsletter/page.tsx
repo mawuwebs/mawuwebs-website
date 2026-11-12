@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { format } from "date-fns";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -23,7 +25,12 @@ export default async function NewsletterPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-bold sm:text-3xl">Newsletter</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-2xl font-bold sm:text-3xl">Newsletter</h1>
+          <Link href="/admin/newsletter/send" className={buttonVariants({ size: "sm" })}>
+            Send a newsletter
+          </Link>
+        </div>
         <p className="mt-1 text-muted-foreground">
           {subscribers.length} subscriber{subscribers.length === 1 ? "" : "s"} signed up from your
           website.
