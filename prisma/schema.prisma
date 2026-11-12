@@ -1,0 +1,256 @@
+// Mawuwebs Solutions — database schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum CategoryType {
+  POST
+  PROJECT
+}
+
+enum SubmissionStatus {
+  NEW
+  READ
+  RESPONDED
+  QUOTED
+  WON
+  LOST
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(EDITOR)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  posts         Post[]
+  activityLogs  ActivityLog[]
+}
+
+model Page {
+  id              String        @id @default(cuid())
+  title           String
+  slug            String        @unique
+  content         String        @default("")
+  status          ContentStatus @default(DRAFT)
+  featuredImage   String?
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String?
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Service {
+  id              String        @id @default(cuid())
+  title           String
+  slug            String        @unique
+  description     String        @default("")
+  content         String        @default("")
+  icon            String        @default("Sparkles")
+  featuredImage   String?
+  status          ContentStatus @default(DRAFT)
+  featured        Boolean       @default(false)
+  order           Int           @default(0)
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String?
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Project {
+  id              String        @id @default(cuid())
+  title           String
+  slug            String        @unique
+  description     String        @default("")
+  content         String        @default("")
+  featuredImage   String?
+  gallery         String        @default("[]")
+  client          String?
+  projectUrl      String?
+  challenge       String        @default("")
+  solution        String        @default("")
+  results         String        @default("[]")
+  year            String?
+  role            String?
+  status          ContentStatus @default(DRAFT)
+  featured        Boolean       @default(false)
+  order           Int           @default(0)
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String?
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  categoryId      String?
+  category        Category?     @relation(fields: [categoryId], references: [id])
+  tags            Tag[]         @relation("ProjectTags")
+}
+
+model Post {
+  id              String        @id @default(cuid())
+  title           String
+  slug            String        @unique
+  excerpt         String        @default("")
+  content         String        @default("")
+  featuredImage   String?
+  status          ContentStatus @default(DRAFT)
+  featured        Boolean       @default(false)
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String?
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  authorId        String?
+  author          User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  categoryId      String?
+  category        Category?     @relation(fields: [categoryId], references: [id])
+  tags            Tag[]         @relation("PostTags")
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  type      CategoryType
+  createdAt DateTime     @default(now())
+
+  posts     Post[]
+  projects  Project[]
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+
+  posts     Post[]    @relation("PostTags")
+  projects  Project[] @relation("ProjectTags")
+}
+
+model Testimonial {
+  id        String        @id @default(cuid())
+  name      String
+  role      String        @default("")
+  company   String        @default("")
+  avatar    String?
+  content   String
+  rating    Int           @default(5)
+  status    ContentStatus @default(DRAFT)
+  order     Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model Faq {
+  id        String        @id @default(cuid())
+  question  String
+  answer    String
+  category  String        @default("General")
+  status    ContentStatus @default(DRAFT)
+  order     Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model SocialLink {
+  id        String   @id @default(cuid())
+  platform  String
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model SiteSettings {
+  id                    String   @id @default("main")
+  siteName              String   @default("Mawuwebs Solutions")
+  tagline               String   @default("Modern Web & Digital Solutions")
+  logo                  String?
+  favicon               String?
+  contactEmail          String   @default("hello@mawuwebs.com")
+  phone                 String   @default("+1 (555) 123-4567")
+  address               String   @default("123 Innovation Drive, Suite 400, Tech City")
+  mapEmbedUrl           String?
+  footerText            String   @default("Building modern digital experiences that grow your business.")
+  heroHeadline          String   @default("Modern Web Solutions That Grow Your Business")
+  heroSubheading        String   @default("We design, build, and scale premium digital products for ambitious companies.")
+  heroCtaPrimaryText    String   @default("Start a Project")
+  heroCtaPrimaryUrl     String   @default("/contact")
+  heroCtaSecondaryText  String   @default("View Our Work")
+  heroCtaSecondaryUrl   String   @default("/portfolio")
+  heroImage             String?
+  metrics               String   @default("[]")
+  newsletterEnabled     Boolean  @default(true)
+  bookingUrl            String?
+  updatedAt             DateTime @updatedAt
+}
+
+model ContactSubmission {
+  id        String           @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String           @default("")
+  message   String
+  notes     String           @default("")
+  status    SubmissionStatus @default(NEW)
+  createdAt DateTime         @default(now())
+}
+
+model NewsletterSubscriber {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  token       String?   @unique
+  confirmedAt DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  filename  String
+  url       String
+  mimeType  String
+  size      Int
+  alt       String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String
+  message    String
+  createdAt  DateTime @default(now())
+
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}

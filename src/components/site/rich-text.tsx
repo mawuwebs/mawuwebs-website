@@ -1,0 +1,11 @@
+import { cn } from "@/lib/utils";
+
+export function RichText({ html, className }: { html: string; className?: string }) {
+  return (
+    <div
+      className={cn("prose-content", className)}
+      // Content is authored exclusively by authenticated admin/editor users via the CMS.
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
