@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { Reply } from "lucide-react";
+import { Loader2, Mail, Phone, Reply, Send } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -12,20 +13,62 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { MessageStatusSelect } from "@/components/admin/message-status-select";
 import { DeleteButton } from "@/components/admin/delete-button";
-import { toast } from "sonner";
-import { Textarea } from "@/components/ui/textarea";
-import { deleteSubmission, setSubmissionStatus, saveSubmissionNotes } from "@/lib/actions/messages";
-import { parseSubmission, submissionKind, KIND_LABEL } from "@/lib/submission";
+import {
+  deleteSubmission,
+  replyToSubmission,
+  saveSubmissionNotes,
+  saveSubmissionPipeline,
+  setSubmissionStatus,
+} from "@/lib/actions/messages";
+import { parseSubmission, kindOf, KIND_LABEL } from "@/lib/submission";
 import type { ContactSubmissionModel } from "@/generated/prisma/models";
 
-export function MessageDetailDialog({ submission }: { submission: ContactSubmissionModel }) {
-  const [open, setOpen] = React.useState(false);
+const toDateInput = (d: Date | null) => (d ? format(d, "yyyy-MM-dd") : "");
+
+export function MessageDetailDialog({
+  submission,
+  canDelete,
+  defaultOpen = false,
+  open: openProp,
+  onOpenChange,
+}: {
+  submission: ContactSubmissionModel;
+  canDelete: boolean;
+  defaultOpen?: boolean;
+  /** Optional controlled state so the table row can open the dialog. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [openState, setOpenState] = React.useState(defaultOpen);
+  const open = openProp ?? openState;
+  const setOpen = (v: boolean) => {
+    setOpenState(v);
+    onOpenChange?.(v);
+  };
+  React.useEffect(() => {
+    if (defaultOpen && submission.status === "NEW") setSubmissionStatus(submission.id, "READ");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [notes, setNotes] = React.useState(submission.notes);
+  const [quote, setQuote] = React.useState(submission.quoteAmount?.toString() ?? "");
+  const [followUp, setFollowUp] = React.useState(toDateInput(submission.followUpAt));
+  const [replying, setReplying] = React.useState(false);
+  const [subject, setSubject] = React.useState(
+    "Re: " + (submission.subject || "Your message to us")
+  );
+  const [body, setBody] = React.useState(`Hi ${submission.name.split(" ")[0]},\n\n\n\nBest regards`);
   const [saving, startSaving] = React.useTransition();
+  const [sending, startSending] = React.useTransition();
+  const [savingPipe, startSavingPipe] = React.useTransition();
+
   const parsed = parseSubmission(submission.message);
-  const kind = submissionKind(submission.subject);
+  const kind = kindOf(submission);
+  const pipelineDirty =
+    quote !== (submission.quoteAmount?.toString() ?? "") || followUp !== toDateInput(submission.followUpAt);
 
   return (
     <Dialog
@@ -37,30 +80,43 @@ export function MessageDetailDialog({ submission }: { submission: ContactSubmiss
         }
       }}
     >
-      <DialogTrigger render={<Button type="button" variant="outline" size="sm" />}>
-        View
-      </DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogTrigger render={<Button type="button" variant="outline" size="sm" />}>View</DialogTrigger>
+      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{KIND_LABEL[kind]}{kind === "message" && submission.subject ? `: ${submission.subject}` : ""}</DialogTitle>
+          <DialogTitle>
+            {KIND_LABEL[kind]}
+            {kind === "message" && submission.subject ? `: ${submission.subject}` : ""}
+          </DialogTitle>
           <DialogDescription>
             From {submission.name} &middot; {format(submission.createdAt, "MMM d, yyyy 'at' h:mm a")}
+            {submission.repliedAt && <> &middot; replied {format(submission.repliedAt, "MMM d")}</>}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="text-muted-foreground">Email</dt>
-              <dd className="font-medium">{submission.email}</dd>
-            </div>
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+            <span className="text-sm text-muted-foreground">Status</span>
+            <MessageStatusSelect id={submission.id} status={submission.status} />
+          </div>
+
+          <div className="flex flex-wrap gap-2 text-sm">
+            <a
+              href={`mailto:${submission.email}`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 hover:bg-secondary"
+            >
+              <Mail className="size-3.5" />
+              {submission.email}
+            </a>
             {submission.phone && (
-              <div>
-                <dt className="text-muted-foreground">Phone</dt>
-                <dd className="font-medium">{submission.phone}</dd>
-              </div>
+              <a
+                href={`tel:${submission.phone}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 hover:bg-secondary"
+              >
+                <Phone className="size-3.5" />
+                {submission.phone}
+              </a>
             )}
-          </dl>
+          </div>
 
           {parsed.structured ? (
             <>
@@ -82,6 +138,104 @@ export function MessageDetailDialog({ submission }: { submission: ContactSubmiss
             <div className="rounded-lg bg-secondary/50 p-4 text-sm leading-relaxed whitespace-pre-wrap">
               {submission.message}
             </div>
+          )}
+
+          {/* Pipeline */}
+          <fieldset className="grid grid-cols-1 gap-3 rounded-lg border border-border p-4 sm:grid-cols-2">
+            <legend className="px-1 text-sm font-medium">Pipeline</legend>
+            <div>
+              <label htmlFor={`quote-${submission.id}`} className="text-xs text-muted-foreground">
+                Quote value (USD)
+              </label>
+              <Input
+                id={`quote-${submission.id}`}
+                inputMode="numeric"
+                value={quote}
+                onChange={(e) => setQuote(e.target.value)}
+                placeholder="e.g. 2500"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label htmlFor={`follow-${submission.id}`} className="text-xs text-muted-foreground">
+                Follow up on
+              </label>
+              <Input
+                id={`follow-${submission.id}`}
+                type="date"
+                value={followUp}
+                onChange={(e) => setFollowUp(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={savingPipe || !pipelineDirty}
+                onClick={() =>
+                  startSavingPipe(async () => {
+                    const r = await saveSubmissionPipeline(submission.id, { quoteAmount: quote, followUpAt: followUp });
+                    if (r.success) toast.success(r.message);
+                    else toast.error(r.message);
+                  })
+                }
+              >
+                Save pipeline
+              </Button>
+            </div>
+          </fieldset>
+
+          {/* Reply */}
+          {replying ? (
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <p className="text-sm font-medium">Reply to {submission.email}</p>
+              <Input value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="Subject" />
+              <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={7} aria-label="Message" />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={sending}
+                  onClick={() =>
+                    startSending(async () => {
+                      const r = await replyToSubmission(submission.id, { subject, body });
+                      if (r.success) {
+                        toast.success(r.message);
+                        setReplying(false);
+                      } else toast.error(r.message);
+                    })
+                  }
+                >
+                  {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                  Send reply
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  render={
+                    <a
+                      href={`mailto:${submission.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
+                    />
+                  }
+                >
+                  Open in mail app
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setReplying(false)}>
+                  Cancel
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sending marks this enquiry as replied and logs it in the notes.
+              </p>
+            </div>
+          ) : (
+            <Button type="button" variant="outline" size="sm" onClick={() => setReplying(true)}>
+              <Reply className="size-4" />
+              Reply by email
+            </Button>
           )}
 
           <div>
@@ -106,6 +260,7 @@ export function MessageDetailDialog({ submission }: { submission: ContactSubmiss
                 startSaving(async () => {
                   const r = await saveSubmissionNotes(submission.id, notes);
                   if (r.success) toast.success(r.message);
+                  else toast.error(r.message);
                 })
               }
             >
@@ -113,31 +268,15 @@ export function MessageDetailDialog({ submission }: { submission: ContactSubmiss
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <MessageStatusSelect id={submission.id} status={submission.status} />
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                render={
-                  <a
-                    href={`mailto:${submission.email}?subject=${encodeURIComponent(
-                      "Re: " + (submission.subject || "Your message to us")
-                    )}`}
-                  />
-                }
-              >
-                <Reply className="size-4" />
-                Reply
-              </Button>
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">
+            {canDelete && (
               <DeleteButton
                 itemLabel={`message from ${submission.name}`}
                 action={deleteSubmission.bind(null, submission.id)}
                 variant="outline"
                 size="sm"
               />
-            </div>
+            )}
           </div>
         </div>
       </DialogContent>

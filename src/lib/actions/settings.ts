@@ -44,7 +44,7 @@ export async function updateSiteSettings(
   const parsed = schema.safeParse({
     siteName: formData.get("siteName"),
     tagline: formData.get("tagline"),
-    logo: formData.get("logo"),
+    logo: formData.get("logo") ?? undefined,
     favicon: formData.get("favicon"),
     contactEmail: formData.get("contactEmail"),
     phone: formData.get("phone"),

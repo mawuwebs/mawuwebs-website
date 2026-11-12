@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
+import { parseSchedule, saveRevision } from "@/lib/revisions";
 
 const schema = z.object({
   title: z.string().trim().min(2, "Title is required."),
@@ -24,6 +25,7 @@ const schema = z.object({
   categoryId: z.string().trim().optional(),
   tagIds: z.array(z.string()).default([]),
   status: z.enum(["DRAFT", "PUBLISHED"]),
+  scheduledAt: z.string().trim().optional(),
   featured: z.coerce.boolean(),
   order: z.coerce.number().int().default(0),
   metaTitle: z.string().trim().optional(),
@@ -66,6 +68,7 @@ function parseForm(formData: FormData) {
     categoryId: formData.get("categoryId") || undefined,
     tagIds: formData.getAll("tagIds"),
     status: formData.get("status"),
+    scheduledAt: formData.get("scheduledAt") || undefined,
     featured: formData.get("featured"),
     order: formData.get("order") || 0,
     metaTitle: formData.get("metaTitle"),
@@ -98,10 +101,13 @@ export async function createProject(
     return { success: false, message: "That slug is already in use.", fieldErrors: { slug: "This slug is already taken." } };
   }
 
-  const { tagIds, categoryId, ...data } = parsed.data;
+  const { tagIds, categoryId, scheduledAt: rawSchedule, ...data } = parsed.data;
+  const schedule = parseSchedule(rawSchedule, data.status);
+  if (schedule.error) return { success: false, message: schedule.error, fieldErrors: { scheduledAt: schedule.error } };
   const project = await prisma.project.create({
     data: {
       ...data,
+      scheduledAt: schedule.value,
       categoryId: categoryId || null,
       tags: { connect: tagIds.map((id) => ({ id })) },
       publishedAt: data.status === "PUBLISHED" ? new Date() : null,
@@ -138,11 +144,16 @@ export async function updateProject(
   }
 
   const current = await prisma.project.findUnique({ where: { id } });
-  const { tagIds, categoryId, ...data } = parsed.data;
+  if (current?.deletedAt) return { success: false, message: "This item is in the trash. Restore it before editing." };
+  const { tagIds, categoryId, scheduledAt: rawSchedule, ...data } = parsed.data;
+  const schedule = parseSchedule(rawSchedule, data.status);
+  if (schedule.error) return { success: false, message: schedule.error, fieldErrors: { scheduledAt: schedule.error } };
+  await saveRevision("project", id, user.name ?? "Admin");
   const project = await prisma.project.update({
     where: { id },
     data: {
       ...data,
+      scheduledAt: schedule.value,
       categoryId: categoryId || null,
       tags: { set: tagIds.map((tid) => ({ id: tid })) },
       publishedAt:
@@ -164,32 +175,17 @@ export async function updateProject(
   redirect("/admin/projects");
 }
 
-export async function deleteProject(id: string) {
-  const user = await requireUser();
-  const project = await prisma.project.delete({ where: { id } });
-
-  await logActivity({
-    userId: user.id,
-    action: "deleted",
-    entityType: "Project",
-    entityId: id,
-    message: `Deleted project "${project.title}"`,
-  });
-
-  revalidatePath("/admin/projects");
-  revalidatePath("/portfolio");
-  return { success: true, message: "Project deleted." };
-}
-
 export async function toggleProjectStatus(id: string) {
   const user = await requireUser();
   const project = await prisma.project.findUniqueOrThrow({ where: { id } });
+  if (project.deletedAt) return { success: false, message: "This item is in the trash. Restore it first." };
   const nextStatus = project.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
 
   await prisma.project.update({
     where: { id },
     data: {
       status: nextStatus,
+      scheduledAt: null,
       publishedAt: nextStatus === "PUBLISHED" ? (project.publishedAt ?? new Date()) : project.publishedAt,
     },
   });

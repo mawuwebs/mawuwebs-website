@@ -1,8 +1,20 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
+import { toPlan } from "@/lib/plans";
+
+/**
+ * Admin preview: the /preview route flips this for the current request only (React cache is
+ * per-request on the server), so slug lookups return drafts, scheduled and trashed items.
+ */
+const previewState = cache(() => ({ on: false }));
+export function enablePreview() {
+  previewState().on = true;
+}
+const previewing = () => previewState().on;
 
 export async function getPublishedServices(opts?: { page?: number; pageSize?: number; group?: string }) {
   return prisma.service.findMany({
-    where: { status: "PUBLISHED", ...(opts?.group ? { category: opts.group } : {}) },
+    where: { ...live(), ...(opts?.group ? { category: opts.group } : {}) },
     orderBy: { order: "asc" },
     ...(opts?.pageSize
       ? { skip: ((opts.page ?? 1) - 1) * opts.pageSize, take: opts.pageSize }
@@ -12,20 +24,20 @@ export async function getPublishedServices(opts?: { page?: number; pageSize?: nu
 
 export async function getPublishedServicesCount(opts?: { group?: string }) {
   return prisma.service.count({
-    where: { status: "PUBLISHED", ...(opts?.group ? { category: opts.group } : {}) },
+    where: { ...live(), ...(opts?.group ? { category: opts.group } : {}) },
   });
 }
 
 export async function getFeaturedServices(limit = 3) {
   return prisma.service.findMany({
-    where: { status: "PUBLISHED", featured: true },
+    where: { ...live(), featured: true },
     orderBy: { order: "asc" },
     take: limit,
   });
 }
 
 export async function getServiceBySlug(slug: string) {
-  return prisma.service.findFirst({ where: { slug, status: "PUBLISHED" } });
+  return prisma.service.findFirst({ where: previewing() ? { slug } : { slug, ...live() } });
 }
 
 export async function getPublishedProjects(opts?: {
@@ -36,7 +48,7 @@ export async function getPublishedProjects(opts?: {
 }) {
   return prisma.project.findMany({
     where: {
-      status: "PUBLISHED",
+      ...live(),
       ...(opts?.category ? { category: { slug: opts.category } } : {}),
     },
     orderBy: [{ order: "asc" }, { publishedAt: "desc" }],
@@ -49,7 +61,7 @@ export async function getPublishedProjects(opts?: {
 export async function getPublishedProjectsCount(opts?: { category?: string }) {
   return prisma.project.count({
     where: {
-      status: "PUBLISHED",
+      ...live(),
       ...(opts?.category ? { category: { slug: opts.category } } : {}),
     },
   });
@@ -57,7 +69,7 @@ export async function getPublishedProjectsCount(opts?: { category?: string }) {
 
 export async function getFeaturedProjects(limit = 3) {
   return prisma.project.findMany({
-    where: { status: "PUBLISHED", featured: true },
+    where: { ...live(), featured: true },
     orderBy: { order: "asc" },
     include: { category: true, tags: true },
     take: limit,
@@ -66,7 +78,7 @@ export async function getFeaturedProjects(limit = 3) {
 
 export async function getProjectBySlug(slug: string) {
   return prisma.project.findFirst({
-    where: { slug, status: "PUBLISHED" },
+    where: previewing() ? { slug } : { slug, ...live() },
     include: { category: true, tags: true },
   });
 }
@@ -74,7 +86,7 @@ export async function getProjectBySlug(slug: string) {
 export async function getRelatedProjects(id: string, categoryId: string | null, limit = 3) {
   if (!categoryId) return [];
   return prisma.project.findMany({
-    where: { status: "PUBLISHED", categoryId, id: { not: id } },
+    where: { ...live(), categoryId, id: { not: id } },
     include: { category: true, tags: true },
     take: limit,
   });
@@ -87,9 +99,20 @@ export async function getProjectCategories() {
   });
 }
 
-function postsWhere(opts?: { category?: string; tag?: string; search?: string }) {
+/** Public visibility: published, not trashed, and not scheduled for the future. */
+export function live() {
   return {
     status: "PUBLISHED" as const,
+    deletedAt: null,
+    AND: [{ OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }] }],
+  };
+}
+
+export const livePost = live;
+
+function postsWhere(opts?: { category?: string; tag?: string; search?: string }) {
+  return {
+    ...live(),
     ...(opts?.category ? { category: { slug: opts.category } } : {}),
     ...(opts?.tag ? { tags: { some: { slug: opts.tag } } } : {}),
     ...(opts?.search
@@ -131,7 +154,7 @@ export async function getPublishedPostsCount(opts?: {
 
 export async function getFeaturedPost() {
   return prisma.post.findFirst({
-    where: { status: "PUBLISHED", featured: true },
+    where: { ...live(), featured: true },
     orderBy: { publishedAt: "desc" },
     include: { category: true, tags: true, author: true },
   });
@@ -139,7 +162,7 @@ export async function getFeaturedPost() {
 
 export async function getPostBySlug(slug: string) {
   return prisma.post.findFirst({
-    where: { slug, status: "PUBLISHED" },
+    where: previewing() ? { slug } : { ...live(), slug },
     include: { category: true, tags: true, author: true },
   });
 }
@@ -147,7 +170,7 @@ export async function getPostBySlug(slug: string) {
 export async function getRelatedPosts(id: string, categoryId: string | null, limit = 3) {
   return prisma.post.findMany({
     where: {
-      status: "PUBLISHED",
+      ...live(),
       id: { not: id },
       ...(categoryId ? { categoryId } : {}),
     },
@@ -184,12 +207,12 @@ export async function getPublishedFaqs() {
 }
 
 export async function getPageBySlug(slug: string) {
-  return prisma.page.findFirst({ where: { slug, status: "PUBLISHED" } });
+  return prisma.page.findFirst({ where: previewing() ? { slug } : { slug, ...live() } });
 }
 
 export async function getNextProject(id: string) {
   const all = await prisma.project.findMany({
-    where: { status: "PUBLISHED" },
+    where: { ...live() },
     orderBy: [{ order: "asc" }, { publishedAt: "desc" }],
     include: { category: true, tags: true },
   });
@@ -203,21 +226,26 @@ export async function searchSite(q: string) {
   if (term.length < 2) return { services: [], projects: [], posts: [] };
   const [services, projects, posts] = await Promise.all([
     prisma.service.findMany({
-      where: { status: "PUBLISHED", OR: [{ title: { contains: term } }, { description: { contains: term } }] },
+      where: { ...live(), OR: [{ title: { contains: term } }, { description: { contains: term } }] },
       select: { title: true, slug: true, description: true },
       take: 4,
     }),
     prisma.project.findMany({
-      where: { status: "PUBLISHED", OR: [{ title: { contains: term } }, { description: { contains: term } }, { client: { contains: term } }] },
+      where: { ...live(), OR: [{ title: { contains: term } }, { description: { contains: term } }, { client: { contains: term } }] },
       select: { title: true, slug: true, description: true },
       take: 4,
     }),
     prisma.post.findMany({
-      where: { status: "PUBLISHED", OR: [{ title: { contains: term } }, { excerpt: { contains: term } }] },
+      where: { ...live(), OR: [{ title: { contains: term } }, { excerpt: { contains: term } }] },
       select: { title: true, slug: true, excerpt: true },
       orderBy: { publishedAt: "desc" },
       take: 4,
     }),
   ]);
   return { services, projects, posts };
+}
+
+export async function getPlans() {
+  const rows = await prisma.plan.findMany({ where: live(), orderBy: [{ order: "asc" }, { createdAt: "asc" }] });
+  return rows.map(toPlan);
 }

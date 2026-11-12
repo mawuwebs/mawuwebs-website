@@ -11,7 +11,10 @@ export async function clientIp() {
 
 /** Returns true when the caller is over the limit. */
 export async function rateLimited(bucket: string, max: number, windowMs: number) {
-  const key = `${bucket}:${await clientIp()}`;
+  const ip = await clientIp();
+  // No proxy header means every visitor shares one bucket; don't let that lock the whole site out.
+  if (ip === "unknown") max *= 10;
+  const key = `${bucket}:${ip}`;
   const now = Date.now();
   const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
   recent.push(now);

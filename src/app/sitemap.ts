@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
+import { live, livePost } from "@/lib/content";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
@@ -15,6 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/start-a-project",
     "/support",
     "/plans",
+    "/plans/enquire",
     "/estimate",
     "/resources",
     "/resources/website-launch-checklist",
@@ -29,15 +31,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const [services, projects, posts] = await Promise.all([
     prisma.service.findMany({
-      where: { status: "PUBLISHED" },
+      where: live(),
       select: { slug: true, updatedAt: true },
     }),
     prisma.project.findMany({
-      where: { status: "PUBLISHED" },
+      where: live(),
       select: { slug: true, updatedAt: true },
     }),
     prisma.post.findMany({
-      where: { status: "PUBLISHED" },
+      where: livePost(),
       select: { slug: true, updatedAt: true },
     }),
   ]);

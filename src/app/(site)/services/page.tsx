@@ -8,8 +8,7 @@ import { Reveal } from "@/components/site/reveal";
 import { Pagination } from "@/components/site/pagination";
 import { getPublishedServices, getPublishedServicesCount } from "@/lib/content";
 import { SERVICE_CATEGORIES } from "@/lib/service-categories";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
+import { FilterChips, ResultSummary, EmptyState } from "@/components/site/filter-chips";
 
 export const metadata: Metadata = {
   title: "Services",
@@ -43,19 +42,16 @@ export default async function ServicesPage({
       />
 
       <Section>
-        <div className="mb-10 flex flex-wrap gap-2" aria-label="Filter services">
-          {[undefined, ...SERVICE_CATEGORIES].map((c) => (
-            <Link
-              key={c ?? "all"}
-              href={c ? `/services?group=${encodeURIComponent(c)}` : "/services"}
-              className={cn(
-                "rounded-full border px-4 py-1.5 text-sm transition-colors",
-                group === c ? "border-forest bg-forest text-white" : "border-border hover:border-foreground/30"
-              )}
-            >
-              {c ?? "All services"}
-            </Link>
-          ))}
+        <FilterChips
+          label="Filter services"
+          chips={[undefined, ...SERVICE_CATEGORIES].map((c) => ({
+            label: c ?? "All services",
+            href: c ? `/services?group=${encodeURIComponent(c)}` : "/services",
+            active: group === c,
+          }))}
+        />
+        <div className="mt-6 mb-8">
+          <ResultSummary count={total} noun="service" clearHref={group ? "/services" : undefined} />
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((service, i) => (
@@ -71,9 +67,12 @@ export default async function ServicesPage({
           ))}
         </div>
         {services.length === 0 && (
-          <p className="text-center text-muted-foreground">
-            Services will appear here once published.
-          </p>
+          <EmptyState
+            title="No services here yet"
+            body="Nothing is published in this group. Browse everything or tell us what you need."
+            actionHref="/services"
+            actionLabel="View all services"
+          />
         )}
         <Pagination currentPage={page} totalPages={totalPages} basePath="/services" searchParams={{ group }} />
       </Section>

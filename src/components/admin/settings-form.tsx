@@ -1,5 +1,6 @@
 "use client";
 
+import { UnsavedGuard } from "@/components/admin/unsaved-guard";
 import { useActionState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ export function SettingsForm({
 
   return (
     <form action={formAction} className="space-y-6">
+      <UnsavedGuard />
       <Tabs defaultValue="brand">
         <TabsList>
           <TabsTrigger value="brand">Brand</TabsTrigger>
@@ -65,7 +67,13 @@ export function SettingsForm({
             </Field>
           </div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <ImageUploadField label="Logo" name="logo" defaultValue={settings.logo} />
+            <div className="rounded-xl border border-border bg-secondary/40 p-4 text-sm">
+              <p className="font-medium">Logo</p>
+              <p className="mt-1 text-muted-foreground">
+                The portrait mark with the site name beside it, on the website and in this admin. It&apos;s a fixed brand
+                file, so there is nothing to upload here. The name above is what appears next to it.
+              </p>
+            </div>
             <ImageUploadField label="Favicon" name="favicon" defaultValue={settings.favicon} />
           </div>
           <Field label="Footer text" htmlFor="field-footerText">

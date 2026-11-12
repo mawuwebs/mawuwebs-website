@@ -13,6 +13,8 @@ import {
   Users,
   History,
   Mails,
+  ListChecks,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,6 +40,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Pages", href: "/admin/pages", icon: FileText },
       { label: "Services", href: "/admin/services", icon: Briefcase },
+      { label: "Plans", href: "/admin/plans", icon: ListChecks },
       { label: "Projects", href: "/admin/projects", icon: FolderKanban },
       { label: "Blog Posts", href: "/admin/posts", icon: Newspaper },
       { label: "Testimonials", href: "/admin/testimonials", icon: MessageSquareQuote },
@@ -49,7 +52,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: "Engagement",
     items: [
-      { label: "Enquiries", href: "/admin/messages", icon: Mail },
+      { label: "Orders", href: "/admin/messages", icon: Mail },
       { label: "Newsletter", href: "/admin/newsletter", icon: Mails },
     ],
   },
@@ -57,6 +60,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: "Configuration",
     items: [
       { label: "Site Settings", href: "/admin/settings", icon: Settings },
+      { label: "Forms & estimates", href: "/admin/forms", icon: SlidersHorizontal, adminOnly: true },
       { label: "Users", href: "/admin/users", icon: Users, adminOnly: true },
       { label: "Activity Log", href: "/admin/activity", icon: History },
     ],

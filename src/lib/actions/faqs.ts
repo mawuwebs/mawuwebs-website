@@ -93,6 +93,7 @@ export async function updateFaq(
 
 export async function deleteFaq(id: string) {
   const user = await requireUser();
+  if (user.role !== "ADMIN") return { success: false, message: "Only admins can delete this." };
   const faq = await prisma.faq.delete({ where: { id } });
 
   await logActivity({

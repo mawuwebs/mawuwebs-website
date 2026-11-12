@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostForm } from "@/components/admin/post-form";
 import { prisma } from "@/lib/prisma";
+import { EditHeader, RevisionHistory } from "@/components/admin/edit-chrome";
 
 export const metadata: Metadata = { title: "Edit Blog Post" };
 
@@ -20,11 +21,9 @@ export default async function EditPostPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold sm:text-3xl">Edit Blog Post</h1>
-        <p className="mt-1 text-muted-foreground">{post.title}</p>
-      </div>
-      <PostForm post={post} categories={categories} tags={tags} />
+      <EditHeader type="post" id={post.id} heading="Edit Blog Post" title={post.title} trashed={!!post.deletedAt} />
+      {!post.deletedAt && <PostForm post={post} categories={categories} tags={tags} />}
+      <RevisionHistory type="post" id={post.id} />
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { format } from "date-fns";
 import { Search, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { FilterChips, ResultSummary, EmptyState } from "@/components/site/filter-chips";
+import { CtaBanner } from "@/components/site/cta-banner";
 import { Illustration } from "@/components/site/illustrations";
 import { PageHeader } from "@/components/site/page-header";
 import { Section } from "@/components/site/container";
@@ -17,7 +19,6 @@ import {
   getPostCategories,
   getFeaturedPost,
 } from "@/lib/content";
-import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Blog & Insights",
@@ -55,43 +56,41 @@ export default async function BlogPage({
 
       <Section className="pb-0">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-2">
-            <Link href="/blog">
-              <Badge
-                variant={!category ? "default" : "outline"}
-                className={cn("cursor-pointer px-4 py-1.5 text-sm transition-all duration-200 hover:-translate-y-0.5", !category && "bg-forest text-white")}
-              >
-                All Posts
-              </Badge>
-            </Link>
-            {categories.map((cat) => (
-              <Link key={cat.id} href={`/blog?category=${cat.slug}`}>
-                <Badge
-                  variant={category === cat.slug ? "default" : "outline"}
-                  className={cn(
-                    "cursor-pointer px-4 py-1.5 text-sm transition-all duration-200 hover:-translate-y-0.5",
-                    category === cat.slug && "bg-forest text-white"
-                  )}
-                >
-                  {cat.name}
-                </Badge>
-              </Link>
-            ))}
-          </div>
-          <form method="get" className="flex w-full max-w-xs items-center gap-2">
+          <FilterChips
+            label="Filter articles"
+            chips={[
+              { label: "All posts", href: search ? `/blog?search=${encodeURIComponent(search)}` : "/blog", active: !category },
+              ...categories.map((cat) => ({
+                label: cat.name,
+                href: `/blog?category=${cat.slug}${search ? `&search=${encodeURIComponent(search)}` : ""}`,
+                active: category === cat.slug,
+              })),
+            ]}
+          />
+          <form method="get" role="search" className="flex w-full items-center gap-2 sm:max-w-xs">
             {category && <input type="hidden" name="category" value={category} />}
+            <label htmlFor="blog-search" className="sr-only">Search articles</label>
             <div className="relative w-full">
               <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="search"
+                id="blog-search"
                 name="search"
                 defaultValue={search}
                 placeholder="Search articles..."
-                className="pl-9"
+                className="h-11 pl-9"
               />
             </div>
+            <button type="submit" className="h-11 shrink-0 rounded-lg bg-forest px-4 text-sm font-medium text-white hover:bg-forest-dark">
+              Search
+            </button>
           </form>
         </div>
+        {(category || search) && (
+          <div className="mt-6">
+            <ResultSummary count={total} noun="article" query={search} clearHref="/blog" />
+          </div>
+        )}
       </Section>
 
       {featured && (
@@ -142,7 +141,12 @@ export default async function BlogPage({
           ))}
         </div>
         {listPosts.length === 0 && !featured && (
-          <p className="text-center text-muted-foreground">No articles found.</p>
+          <EmptyState
+            title="No articles found"
+            body="Try a different keyword or browse every article."
+            actionHref="/blog"
+            actionLabel="View all articles"
+          />
         )}
 
         <Pagination
@@ -152,6 +156,12 @@ export default async function BlogPage({
           searchParams={{ category, search }}
         />
       </Section>
+    <CtaBanner
+        title="Need a hand with something in these articles?"
+        description="Our team can take it off your plate. Tell us what you're dealing with."
+        ctaText="Get in touch"
+        ctaUrl="/contact"
+      />
     </>
   );
 }

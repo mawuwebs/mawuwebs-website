@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
+import { omitSchedule, parseSchedule, saveRevision } from "@/lib/revisions";
 
 const schema = z.object({
   title: z.string().trim().min(2, "Title is required."),
@@ -16,6 +17,7 @@ const schema = z.object({
   category: z.string().trim().min(1).default("Software & Web"),
   featuredImage: z.string().trim().optional(),
   status: z.enum(["DRAFT", "PUBLISHED"]),
+  scheduledAt: z.string().trim().optional(),
   featured: z.coerce.boolean(),
   order: z.coerce.number().int().default(0),
   metaTitle: z.string().trim().optional(),
@@ -39,6 +41,7 @@ function parseForm(formData: FormData) {
     category: formData.get("category") || undefined,
     featuredImage: formData.get("featuredImage"),
     status: formData.get("status"),
+    scheduledAt: formData.get("scheduledAt") || undefined,
     featured: formData.get("featured"),
     order: formData.get("order") || 0,
     metaTitle: formData.get("metaTitle"),
@@ -75,9 +78,13 @@ export async function createService(
     };
   }
 
+  const schedule = parseSchedule(parsed.data.scheduledAt, parsed.data.status);
+  if (schedule.error) return { success: false, message: schedule.error, fieldErrors: { scheduledAt: schedule.error } };
+
   const service = await prisma.service.create({
     data: {
-      ...parsed.data,
+      ...omitSchedule(parsed.data),
+      scheduledAt: schedule.value,
       publishedAt: parsed.data.status === "PUBLISHED" ? new Date() : null,
     },
   });
@@ -116,10 +123,15 @@ export async function updateService(
   }
 
   const current = await prisma.service.findUnique({ where: { id } });
+  if (current?.deletedAt) return { success: false, message: "This item is in the trash. Restore it before editing." };
+  const schedule = parseSchedule(parsed.data.scheduledAt, parsed.data.status);
+  if (schedule.error) return { success: false, message: schedule.error, fieldErrors: { scheduledAt: schedule.error } };
+  await saveRevision("service", id, user.name ?? "Admin");
   const service = await prisma.service.update({
     where: { id },
     data: {
-      ...parsed.data,
+      ...omitSchedule(parsed.data),
+      scheduledAt: schedule.value,
       publishedAt:
         parsed.data.status === "PUBLISHED"
           ? (current?.publishedAt ?? new Date())
@@ -141,32 +153,17 @@ export async function updateService(
   redirect("/admin/services");
 }
 
-export async function deleteService(id: string) {
-  const user = await requireUser();
-  const service = await prisma.service.delete({ where: { id } });
-
-  await logActivity({
-    userId: user.id,
-    action: "deleted",
-    entityType: "Service",
-    entityId: id,
-    message: `Deleted service "${service.title}"`,
-  });
-
-  revalidatePath("/admin/services");
-  revalidatePath("/services");
-  return { success: true, message: "Service deleted." };
-}
-
 export async function toggleServiceStatus(id: string) {
   const user = await requireUser();
   const service = await prisma.service.findUniqueOrThrow({ where: { id } });
+  if (service.deletedAt) return { success: false, message: "This item is in the trash. Restore it first." };
   const nextStatus = service.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
 
   await prisma.service.update({
     where: { id },
     data: {
       status: nextStatus,
+      scheduledAt: null,
       publishedAt: nextStatus === "PUBLISHED" ? (service.publishedAt ?? new Date()) : service.publishedAt,
     },
   });

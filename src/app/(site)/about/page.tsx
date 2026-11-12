@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Illustration } from "@/components/site/illustrations";
 import { PageHeader } from "@/components/site/page-header";
 import { Section, SectionHeading } from "@/components/site/container";
@@ -42,7 +43,17 @@ export default async function AboutPage() {
 
       <Section>
         <div className="grid grid-cols-1 gap-14 lg:grid-cols-[1.1fr_0.9fr]">
-          <RichText html={page.content} className="max-w-none" />
+          <div>
+            <RichText html={page.content} className="max-w-none" />
+            <div className="mt-10 flex flex-wrap gap-3">
+              <Link href="/services" className="inline-flex min-h-11 items-center rounded-lg bg-forest px-5 text-sm font-medium text-white hover:bg-forest-dark">
+                See our services
+              </Link>
+              <Link href="/portfolio" className="inline-flex min-h-11 items-center rounded-lg border border-border px-5 text-sm font-medium hover:bg-muted">
+                View our work
+              </Link>
+            </div>
+          </div>
           {settings.metricsList.length > 0 && (
           <div className="self-start rounded-2xl border border-border bg-secondary/50 p-8 lg:sticky lg:top-24">
             <h3 className="font-display text-lg font-semibold">By the numbers</h3>

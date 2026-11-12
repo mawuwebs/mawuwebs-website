@@ -56,7 +56,11 @@ export async function submitProjectBrief(
   }
 
   const d = parsed.data;
+  // Only trust a slug that matches a real service; anything else is ignored.
+  const slug = String(formData.get("service") ?? "").slice(0, 120);
+  const svc = slug ? await prisma.service.findUnique({ where: { slug }, select: { slug: true, title: true } }) : null;
   const message = [
+    svc ? `Service: ${svc.title}` : null,
     `Project type: ${d.type}`,
     `Timeline: ${d.timeline}`,
     d.budget ? `Budget: ${d.budget}` : null,
@@ -69,9 +73,11 @@ export async function submitProjectBrief(
 
   try {
     await prisma.contactSubmission.create({
-      data: { name: d.name, email: d.email, subject: "Project brief", message },
+      data: { name: d.name, email: d.email, subject: "Project brief", kind: "brief", serviceSlug: svc?.slug ?? "", message },
     });
-  } catch {
+  } catch (err) {
+    // Never lose a lead silently: the server log is the only place a failed save shows up.
+    console.error("[project-brief] could not save submission", err);
     return { success: false, message: "Something went wrong. Please try again." };
   }
 

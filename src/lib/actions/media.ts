@@ -6,6 +6,8 @@ import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/require-admin";
+import { getMediaUsage } from "@/lib/media-usage";
+import { logActivity } from "@/lib/activity-log";
 
 const ALLOWED_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -68,10 +70,20 @@ export async function uploadMedia(
   return { success: true, message: "Upload complete.", url, mediaId: media.id };
 }
 
-export async function deleteMedia(id: string) {
-  await requireUser();
+export async function deleteMedia(id: string, force = false) {
+  const user = await requireUser();
   const media = await prisma.media.findUnique({ where: { id } });
   if (!media) return { success: false, message: "File not found." };
+
+  if (!force) {
+    const used = (await getMediaUsage([media.url]))[media.url];
+    if (used.length > 0) {
+      return {
+        success: false,
+        message: `Still used in ${used.length} place${used.length === 1 ? "" : "s"}: ${used.slice(0, 3).join(", ")}${used.length > 3 ? "…" : ""}`,
+      };
+    }
+  }
 
   try {
     await unlink(path.join(UPLOAD_DIR, media.filename));
@@ -80,6 +92,13 @@ export async function deleteMedia(id: string) {
   }
 
   await prisma.media.delete({ where: { id } });
+  await logActivity({
+    userId: user.id,
+    action: "deleted",
+    entityType: "Media",
+    entityId: id,
+    message: `Deleted image ${media.filename}${force ? " (was in use)" : ""}`,
+  });
   revalidatePath("/admin/media");
   return { success: true, message: "File deleted." };
 }

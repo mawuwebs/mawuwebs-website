@@ -8,15 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import {
-  PROJECT_TYPES,
-  SIZES,
-  FEATURES,
-  TIMELINES,
-  scoreEstimate,
-  IT_TYPE,
-  type Option,
-} from "@/lib/estimate";
+import { scoreEstimate, IT_TYPE, type EstimateConfig, type Option } from "@/lib/estimate";
 import { submitEstimate, type EstimateState } from "@/lib/actions/estimate";
 import { track } from "@/lib/analytics";
 
@@ -79,7 +71,8 @@ function Choice({
   );
 }
 
-export function EstimateWizard() {
+export function EstimateWizard({ config }: { config: EstimateConfig }) {
+  const { types: PROJECT_TYPES, sizes: SIZES, features: FEATURES, timelines: TIMELINES } = config;
   const [step, setStep] = React.useState(0);
   const [type, setType] = React.useState<string>();
   const [size, setSize] = React.useState<string>();
@@ -90,7 +83,7 @@ export function EstimateWizard() {
   const flow = type === IT_TYPE ? IT_FLOW : WEB_FLOW;
   const pos = flow.indexOf(step);
   const canNext = [type, size, true, timeline][step];
-  const { tier } = scoreEstimate({ type, size, features });
+  const { tier } = scoreEstimate({ type, size, features }, config);
 
   React.useEffect(() => {
     if (state.success) track("estimate_submitted", { tier: tier.name });

@@ -40,11 +40,17 @@ model User {
   passwordHash  String
   role          Role      @default(EDITOR)
   image         String?
+  totpSecret        String?
+  totpEnabled       Boolean   @default(false)
+  totpLastStep      Int?
+  recoveryCodes     String    @default("[]")
+  passwordChangedAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   posts         Post[]
   activityLogs  ActivityLog[]
+  resetTokens   PasswordResetToken[]
 }
 
 model Page {
@@ -58,6 +64,8 @@ model Page {
   metaDescription String?
   metaKeywords    String?
   publishedAt     DateTime?
+  scheduledAt     DateTime?
+  deletedAt       DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 }
@@ -78,6 +86,8 @@ model Service {
   metaDescription String?
   metaKeywords    String?
   publishedAt     DateTime?
+  scheduledAt     DateTime?
+  deletedAt       DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 }
@@ -104,6 +114,8 @@ model Project {
   metaDescription String?
   metaKeywords    String?
   publishedAt     DateTime?
+  scheduledAt     DateTime?
+  deletedAt       DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -125,6 +137,8 @@ model Post {
   metaDescription String?
   metaKeywords    String?
   publishedAt     DateTime?
+  scheduledAt     DateTime?
+  deletedAt       DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -226,8 +240,19 @@ model ContactSubmission {
   subject   String           @default("")
   message   String
   notes     String           @default("")
-  status    SubmissionStatus @default(NEW)
-  createdAt DateTime         @default(now())
+  kind        String           @default("message")
+  urgent      Boolean          @default(false)
+  serviceSlug String           @default("")
+  status      SubmissionStatus @default(NEW)
+  quoteAmount Int?
+  followUpAt  DateTime?
+  repliedAt   DateTime?
+  statusChangedAt DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([status, createdAt])
+  @@index([kind])
+  @@index([serviceSlug])
 }
 
 model NewsletterSubscriber {
@@ -235,6 +260,8 @@ model NewsletterSubscriber {
   email       String    @unique
   token       String?   @unique
   confirmedAt DateTime?
+  source      String    @default("")
+  unsubscribedAt DateTime?
   createdAt   DateTime  @default(now())
 }
 
@@ -258,4 +285,62 @@ model ActivityLog {
 
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Revision {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  snapshot   String
+  label      String   @default("")
+  authorName String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+}
+
+model Plan {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  name        String
+  tagline     String        @default("")
+  forWho      String        @default("")
+  features    String        @default("[]")
+  price       String?
+  highlight   Boolean       @default(false)
+  order       Int           @default(0)
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  scheduledAt DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+/// Admin-editable lists for public forms (support options, estimate wizard). Value is validated JSON.
+model FormConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+/// Taps on phone / WhatsApp / email links, so direct contact shows up next to form enquiries.
+model ContactClick {
+  id        String   @id @default(cuid())
+  channel   String
+  page      String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

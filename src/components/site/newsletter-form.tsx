@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { Loader2, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ export function NewsletterForm({ className }: { className?: string }) {
     initialState
   );
   const formRef = useRef<HTMLFormElement>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (state.success) formRef.current?.reset();
@@ -26,6 +28,7 @@ export function NewsletterForm({ className }: { className?: string }) {
     <form ref={formRef} action={formAction} className={className}>
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="hidden" aria-hidden>
+          <input type="hidden" name="source" value={pathname} />
           <input name="company_website" tabIndex={-1} autoComplete="off" />
         </div>
         <label htmlFor="newsletter-email" className="sr-only">

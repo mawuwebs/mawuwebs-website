@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Mail, Phone, MapPin, Clock, CalendarDays } from "lucide-react";
+import Link from "next/link";
+import { Mail, Phone, MapPin, Clock, CalendarDays, LifeBuoy } from "lucide-react";
 import { Illustration } from "@/components/site/illustrations";
 import { PageHeader } from "@/components/site/page-header";
 import { Section } from "@/components/site/container";
@@ -29,15 +30,26 @@ export default async function ContactPage() {
           <div>
             <h2 className="font-display text-2xl font-bold">Get in touch</h2>
             <p className="mt-3 text-muted-foreground">
-              Prefer email or phone? Reach us directly using the details below.
+              Prefer email or phone? Reach us directly using the details below. We reply within one business day.
             </p>
+
+            <Link
+              href="/support"
+              className="mt-6 flex items-start gap-3 rounded-xl border border-accent/30 bg-accent/5 p-4 text-sm transition-colors hover:border-accent"
+            >
+              <LifeBuoy className="mt-0.5 size-5 shrink-0 text-accent" />
+              <span>
+                <span className="block font-semibold">Something broken right now?</span>
+                <span className="text-muted-foreground">Use our IT support form so a technician sees it first.</span>
+              </span>
+            </Link>
 
             {settings.bookingUrl && (
               <a
                 href={settings.bookingUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:border-accent"
+                className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:border-accent"
               >
                 <CalendarDays className="size-4 text-accent" />
                 Rather talk? Book a 15-minute call
@@ -102,7 +114,7 @@ export default async function ContactPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={s.platform}
-                    className="flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-forest hover:text-white"
+                    className="flex size-11 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-forest hover:text-white"
                   >
                     <SocialIcon platform={s.platform} className="size-4" />
                   </a>
@@ -111,7 +123,8 @@ export default async function ContactPage() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+          <div id="message" className="scroll-mt-24 rounded-2xl border border-border bg-card p-6 sm:p-8 lg:sticky lg:top-24 lg:self-start">
+            <h2 className="mb-6 font-display text-xl font-bold">Send us a message</h2>
             <ContactForm />
           </div>
         </div>

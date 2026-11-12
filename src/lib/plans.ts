@@ -1,8 +1,7 @@
-// Managed IT plans shown on /plans. Edit this file to match what you really offer.
-// Prices are intentionally left out: add a `price` string (e.g. "From GHS 500 / month")
-// to a plan when you're ready to publish one, and it will appear on the card.
+// Managed IT plans live in the database (admin: Plans). This file holds the shape and helpers.
 
 export type Plan = {
+  slug: string;
   name: string;
   tagline: string;
   forWho: string;
@@ -11,44 +10,41 @@ export type Plan = {
   price?: string;
 };
 
-export const PLANS: Plan[] = [
-  {
-    name: "Essential",
-    tagline: "A safety net for small teams",
-    forWho: "Small offices that mostly need someone to call when things go wrong.",
-    features: [
-      "Remote help desk for staff",
-      "Email and account support",
-      "Antivirus and update management",
-      "Phone and WhatsApp support during business hours",
-      "Pay-as-you-go on-site visits",
-    ],
-  },
-  {
-    name: "Standard",
-    tagline: "Proactive care, fewer surprises",
-    forWho: "Growing businesses that want problems caught before they stop work.",
-    highlight: true,
-    features: [
-      "Everything in Essential",
-      "Monitoring of computers, network and servers",
-      "Scheduled on-site visits",
-      "Backup management with restore checks",
-      "Security reviews and staff guidance",
-      "Priority response",
-    ],
-  },
-  {
-    name: "Premium",
-    tagline: "IT handled end to end",
-    forWho: "Businesses where downtime is costly and IT needs a dedicated owner.",
-    features: [
-      "Everything in Standard",
-      "Named technician and account contact",
-      "Extended-hours and emergency support",
-      "IT planning, budgeting and vendor management",
-      "New staff and equipment onboarding",
-      "Regular reporting",
-    ],
-  },
-];
+export const TEAM_SIZES = ["1-5 people", "6-15 people", "16-50 people", "50+ people"] as const;
+
+type PlanRow = {
+  slug: string;
+  name: string;
+  tagline: string;
+  forWho: string;
+  features: string;
+  highlight: boolean;
+  price: string | null;
+};
+
+export function toPlan(row: PlanRow): Plan {
+  let features: string[] = [];
+  try {
+    const parsed = JSON.parse(row.features);
+    if (Array.isArray(parsed)) features = parsed.map(String);
+  } catch {
+    features = [];
+  }
+  return {
+    slug: row.slug,
+    name: row.name,
+    tagline: row.tagline,
+    forWho: row.forWho,
+    features,
+    highlight: row.highlight,
+    price: row.price || undefined,
+  };
+}
+
+/** One feature per line in the admin textarea. */
+export const featuresFromText = (text: string) =>
+  text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 30);

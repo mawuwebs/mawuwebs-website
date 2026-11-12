@@ -9,7 +9,7 @@ export async function logActivity({
   message,
 }: {
   userId?: string | null;
-  action: "created" | "updated" | "deleted" | "published" | "unpublished";
+  action: "created" | "updated" | "deleted" | "published" | "unpublished" | "replied" | "restored" | "scheduled";
   entityType: string;
   entityId: string;
   message: string;

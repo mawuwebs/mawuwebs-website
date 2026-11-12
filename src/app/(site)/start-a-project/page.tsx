@@ -26,7 +26,7 @@ const ASSURANCES = [
 export default async function StartProjectPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; timeline?: string; from?: string }>;
+  searchParams: Promise<{ type?: string; timeline?: string; from?: string; service?: string }>;
 }) {
   const [sp, settings] = await Promise.all([searchParams, getSiteSettings()]);
   const defaultType = (BRIEF_TYPES as readonly string[]).includes(sp.type ?? "") ? sp.type : undefined;
@@ -47,6 +47,7 @@ export default async function StartProjectPage({
               defaultType={defaultType}
               defaultTimeline={defaultTimeline}
               fromEstimate={sp.from}
+              service={sp.service?.slice(0, 120)}
             />
           </div>
 

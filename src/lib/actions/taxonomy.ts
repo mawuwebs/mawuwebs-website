@@ -50,7 +50,8 @@ export async function renameCategory(id: string, name: string): Promise<Taxonomy
 }
 
 export async function deleteCategory(id: string): Promise<TaxonomyState> {
-  await requireUser();
+  const user = await requireUser();
+  if (user.role !== "ADMIN") return { success: false, message: "Only admins can delete this." };
   await prisma.category.delete({ where: { id } });
   revalidatePath("/admin/taxonomy");
   return { success: true, message: "Category deleted." };
@@ -91,7 +92,8 @@ export async function renameTag(id: string, name: string): Promise<TaxonomyState
 }
 
 export async function deleteTag(id: string): Promise<TaxonomyState> {
-  await requireUser();
+  const user = await requireUser();
+  if (user.role !== "ADMIN") return { success: false, message: "Only admins can delete this." };
   await prisma.tag.delete({ where: { id } });
   revalidatePath("/admin/taxonomy");
   return { success: true, message: "Tag deleted." };

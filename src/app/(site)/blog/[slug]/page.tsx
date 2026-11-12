@@ -15,13 +15,13 @@ import { CtaBanner } from "@/components/site/cta-banner";
 import { NewsletterForm } from "@/components/site/newsletter-form";
 import { withToc } from "@/lib/toc";
 import { readingTime } from "@/lib/reading-time";
-import { getPostBySlug, getRelatedPosts } from "@/lib/content";
+import { getPostBySlug, getRelatedPosts, livePost } from "@/lib/content";
 import { getSiteSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 
 export async function generateStaticParams() {
   const posts = await prisma.post.findMany({
-    where: { status: "PUBLISHED" },
+    where: livePost(),
     select: { slug: true },
   });
   return posts.map((p) => ({ slug: p.slug }));

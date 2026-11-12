@@ -3,11 +3,13 @@ import { EmptyState } from "@/components/admin/list-page-header";
 import { MediaUploader } from "@/components/admin/media-uploader";
 import { MediaCard } from "@/components/admin/media-card";
 import { prisma } from "@/lib/prisma";
+import { getMediaUsage } from "@/lib/media-usage";
 
 export const metadata: Metadata = { title: "Media Library" };
 
 export default async function MediaLibraryPage() {
   const media = await prisma.media.findMany({ orderBy: { createdAt: "desc" } });
+  const usage = await getMediaUsage(media.map((m) => m.url));
 
   return (
     <div className="space-y-6">
@@ -26,7 +28,7 @@ export default async function MediaLibraryPage() {
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {media.map((item) => (
-            <MediaCard key={item.id} media={item} />
+            <MediaCard key={item.id} media={item} usedIn={usage[item.url]} />
           ))}
         </div>
       )}

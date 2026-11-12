@@ -5,13 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { rateLimited } from "@/lib/rate-limit";
 import { sendMail, notifyEmail } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
-import {
-  PROJECT_TYPES,
-  SIZES,
-  FEATURES,
-  TIMELINES,
-  scoreEstimate,
-} from "@/lib/estimate";
+import { scoreEstimate } from "@/lib/estimate";
+import { getEstimateConfig } from "@/lib/form-config";
 
 const schema = z.object({
   type: z.string().min(1),
@@ -61,23 +56,29 @@ export async function submitEstimate(
   }
 
   const d = parsed.data;
-  const { tier } = scoreEstimate({ type: d.type, size: d.size, features: d.features });
+  // The lists are edited in the admin, so check every answer against what's live now.
+  const cfg = await getEstimateConfig();
+  const known = (list: { id: string }[], id?: string) => !id || list.some((o) => o.id === id);
+  if (!known(cfg.types, d.type) || !known(cfg.sizes, d.size) || !known(cfg.timelines, d.timeline) || !d.features.every((f) => known(cfg.features, f))) {
+    return { success: false, message: "The options changed while you were filling this in. Please reload the page and try again." };
+  }
+  const { tier } = scoreEstimate({ type: d.type, size: d.size, features: d.features }, cfg);
   const message = [
-    `Project type: ${label(PROJECT_TYPES, d.type)}`,
+    `Project type: ${label(cfg.types, d.type)}`,
     ...(d.size
       ? [
-          `Size: ${label(SIZES, d.size)}`,
-          `Features: ${d.features.length ? d.features.map((f) => label(FEATURES, f)).join(", ") : "None selected"}`,
+          `Size: ${label(cfg.sizes, d.size)}`,
+          `Features: ${d.features.length ? d.features.map((f) => label(cfg.features, f)).join(", ") : "None selected"}`,
         ]
       : []),
-    `Timeline: ${label(TIMELINES, d.timeline)}`,
+    `Timeline: ${label(cfg.timelines, d.timeline)}`,
     `Indicative tier shown to visitor: ${tier.name} (${tier.weeks})`,
     d.notes ? `\nNotes:\n${d.notes}` : "",
   ].join("\n");
 
   try {
     await prisma.contactSubmission.create({
-      data: { name: d.name, email: d.email, subject: "Project estimate", message },
+      data: { name: d.name, email: d.email, subject: "Project estimate", kind: "estimate", message },
     });
     const settings = await getSiteSettings();
     await sendMail({
@@ -86,8 +87,16 @@ export async function submitEstimate(
       subject: `New estimate request: ${d.name}`,
       text: `From: ${d.name} <${d.email}>\n\n${message}`,
     });
+    await sendMail({
+      to: d.email,
+      replyTo: notifyEmail(settings.contactEmail),
+      subject: `We received your project estimate request | ${settings.siteName}`,
+      text: `Hi ${d.name.split(" ")[0]},\n\nThanks for using our estimate tool. We'll reply with a few questions and a written quote.\n\nWhat you told us:\n\n${message}\n\nThe tier shown on screen is a rough guide, not a quote.\n\n${settings.siteName}`,
+    });
     return { success: true, message: "Sent. We'll reply with questions and a written quote." };
-  } catch {
+  } catch (err) {
+    // Never lose a lead silently: the server log is the only place a failed save shows up.
+    console.error("[estimate] could not save submission", err);
     return { success: false, message: "Something went wrong. Please try again." };
   }
 }

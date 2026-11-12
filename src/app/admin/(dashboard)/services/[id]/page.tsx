@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ServiceForm } from "@/components/admin/service-form";
 import { prisma } from "@/lib/prisma";
+import { EditHeader, RevisionHistory } from "@/components/admin/edit-chrome";
 
 export const metadata: Metadata = { title: "Edit Service" };
 
@@ -16,11 +17,9 @@ export default async function EditServicePage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold sm:text-3xl">Edit Service</h1>
-        <p className="mt-1 text-muted-foreground">{service.title}</p>
-      </div>
-      <ServiceForm service={service} />
+      <EditHeader type="service" id={service.id} heading="Edit Service" title={service.title} trashed={!!service.deletedAt} />
+      {!service.deletedAt && <ServiceForm service={service} />}
+      <RevisionHistory type="service" id={service.id} />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { submitSupportRequest, type SupportState } from "@/lib/actions/support";
-import { SUPPORT_ISSUES, SUPPORT_URGENCY } from "@/lib/support";
+import type { SupportConfig } from "@/lib/support";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +48,7 @@ function Pills({ name, options, error }: { name: string; options: readonly strin
   );
 }
 
-export function SupportForm() {
+export function SupportForm({ config }: { config: SupportConfig }) {
   const [state, formAction, pending] = useActionState(submitSupportRequest, initialState);
   const errors = state.fieldErrors ?? {};
 
@@ -78,12 +78,12 @@ export function SupportForm() {
 
       <fieldset>
         <legend className="font-display text-lg font-semibold">What is the problem about?</legend>
-        <Pills name="issue" options={SUPPORT_ISSUES} error={errors.issue} />
+        <Pills name="issue" options={config.issues} error={errors.issue} />
       </fieldset>
 
       <fieldset>
         <legend className="font-display text-lg font-semibold">How urgent is it?</legend>
-        <Pills name="urgency" options={SUPPORT_URGENCY} error={errors.urgency} />
+        <Pills name="urgency" options={config.urgency.map((u) => u.label)} error={errors.urgency} />
       </fieldset>
 
       <div>

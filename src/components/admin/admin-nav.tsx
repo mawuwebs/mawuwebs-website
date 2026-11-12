@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils";
 
 export function AdminNav({
   role,
+  badges,
   onNavigate,
 }: {
   role: "ADMIN" | "EDITOR";
+  badges?: Record<string, number>;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -51,7 +53,12 @@ export function AdminNav({
                       )}
                     />
                     <item.icon className="size-4 shrink-0 transition-transform duration-200 group-hover/item:scale-110" />
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    {badges?.[item.href] ? (
+                      <span className="ml-auto min-w-5 rounded-full bg-orange px-1.5 py-0.5 text-center text-[11px] leading-none font-bold text-forest">
+                        {badges[item.href] > 99 ? "99+" : badges[item.href]}
+                      </span>
+                    ) : null}
                   </Link>
                 );
               })}

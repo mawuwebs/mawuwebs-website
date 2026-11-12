@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Pencil } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -9,21 +7,43 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ListPageHeader, EmptyState } from "@/components/admin/list-page-header";
-import { PublishToggle } from "@/components/admin/publish-toggle";
-import { DeleteButton } from "@/components/admin/delete-button";
+import { ContentStatusCell } from "@/components/admin/content-status-cell";
+import { ContentRowActions } from "@/components/admin/content-row-actions";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { deleteProject, toggleProjectStatus } from "@/lib/actions/projects";
+import { ListToolbar, parseListParams, statusWhere } from "@/components/admin/list-toolbar";
+import { Pagination } from "@/components/admin/pagination";
+
+const PAGE_SIZE = 25;
+import { toggleProjectStatus } from "@/lib/actions/projects";
 
 export const metadata: Metadata = { title: "Projects" };
 
-export default async function AdminProjectsPage() {
-  const projects = await prisma.project.findMany({
-    orderBy: { order: "asc" },
-    include: { category: true },
-  });
+export default async function AdminProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; q?: string; page?: string }>;
+}) {
+  const list = parseListParams(await searchParams, PAGE_SIZE);
+  const where = {
+    AND: [
+      statusWhere(list.status),
+      list.q ? { OR: [{ title: { contains: list.q } }, { slug: { contains: list.q } }, { client: { contains: list.q } }] } : {},
+    ],
+  };
+  const isAdmin = (await auth())?.user?.role === "ADMIN";
+  const [projects, total] = await Promise.all([
+    prisma.project.findMany({
+      where,
+      orderBy: { order: "asc" },
+      include: { category: true },
+      take: list.take,
+      skip: list.skip,
+    }),
+    prisma.project.count({ where }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -34,9 +54,12 @@ export default async function AdminProjectsPage() {
         newLabel="New Project"
       />
 
+      <ListToolbar basePath="/admin/projects" status={list.status} q={list.q} searchLabel="Search projects" />
+
       {projects.length === 0 ? (
-        <EmptyState message="No projects yet. Create your first one." />
+        <EmptyState message={list.q || list.status ? "Nothing matches these filters." : "No projects yet. Create your first one."} />
       ) : (
+        <>
         <div className="overflow-x-auto rounded-2xl border border-border bg-card">
           <Table>
             <TableHeader>
@@ -59,35 +82,21 @@ export default async function AdminProjectsPage() {
                     {project.category?.name ?? "—"}
                   </TableCell>
                   <TableCell>
-                    <PublishToggle
-                      status={project.status}
-                      action={toggleProjectStatus.bind(null, project.id)}
-                    />
+                    <ContentStatusCell status={project.status} scheduledAt={project.scheduledAt} deletedAt={project.deletedAt} toggle={toggleProjectStatus.bind(null, project.id)} />
                   </TableCell>
                   <TableCell>
                     {project.featured && <Badge variant="outline">Featured</Badge>}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        render={<Link href={`/admin/projects/${project.id}`} />}
-                        aria-label={`Edit ${project.title}`}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <DeleteButton
-                        itemLabel={project.title}
-                        action={deleteProject.bind(null, project.id)}
-                      />
-                    </div>
+                    <ContentRowActions type="project" id={project.id} title={project.title} editHref={`/admin/projects/${project.id}`} trashed={list.status === "TRASH"} isAdmin={isAdmin} />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
+        <Pagination basePath="/admin/projects" params={{ status: list.status || undefined, q: list.q || undefined }} page={list.page} pageSize={PAGE_SIZE} total={total} />
+        </>
       )}
     </div>
   );

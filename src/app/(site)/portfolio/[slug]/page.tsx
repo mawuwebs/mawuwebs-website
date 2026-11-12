@@ -11,13 +11,13 @@ import { Illustration } from "@/components/site/illustrations";
 import { RichText } from "@/components/site/rich-text";
 import { ProjectCard } from "@/components/site/project-card";
 import { CtaBanner } from "@/components/site/cta-banner";
-import { getProjectBySlug, getRelatedProjects, getNextProject } from "@/lib/content";
+import { getProjectBySlug, getRelatedProjects, getNextProject, live } from "@/lib/content";
 import { getSiteSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 
 export async function generateStaticParams() {
   const projects = await prisma.project.findMany({
-    where: { status: "PUBLISHED" },
+    where: live(),
     select: { slug: true },
   });
   return projects.map((p) => ({ slug: p.slug }));

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Illustration } from "@/components/site/illustrations";
 import { PageHeader } from "@/components/site/page-header";
 import { Section } from "@/components/site/container";
@@ -7,13 +6,12 @@ import { ProjectCard } from "@/components/site/project-card";
 import { CtaBanner } from "@/components/site/cta-banner";
 import { Reveal } from "@/components/site/reveal";
 import { Pagination } from "@/components/site/pagination";
-import { Badge } from "@/components/ui/badge";
 import {
   getPublishedProjects,
   getPublishedProjectsCount,
   getProjectCategories,
 } from "@/lib/content";
-import { cn } from "@/lib/utils";
+import { FilterChips, ResultSummary, EmptyState } from "@/components/site/filter-chips";
 
 export const metadata: Metadata = {
   title: "Portfolio",
@@ -47,31 +45,22 @@ export default async function PortfolioPage({
       />
 
       <Section>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/portfolio">
-            <Badge
-              variant={!category ? "default" : "outline"}
-              className={cn("cursor-pointer px-4 py-1.5 text-sm transition-all duration-200 hover:-translate-y-0.5", !category && "bg-forest text-white")}
-            >
-              All Projects
-            </Badge>
-          </Link>
-          {categories.map((cat) => (
-            <Link key={cat.id} href={`/portfolio?category=${cat.slug}`}>
-              <Badge
-                variant={category === cat.slug ? "default" : "outline"}
-                className={cn(
-                  "cursor-pointer px-4 py-1.5 text-sm transition-all duration-200 hover:-translate-y-0.5",
-                  category === cat.slug && "bg-forest text-white"
-                )}
-              >
-                {cat.name}
-              </Badge>
-            </Link>
-          ))}
+        <FilterChips
+          label="Filter projects"
+          chips={[
+            { label: "All projects", href: "/portfolio", active: !category },
+            ...categories.map((cat) => ({
+              label: cat.name,
+              href: `/portfolio?category=${cat.slug}`,
+              active: category === cat.slug,
+            })),
+          ]}
+        />
+        <div className="mt-6">
+          <ResultSummary count={total} noun="project" clearHref={category ? "/portfolio" : undefined} />
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:[&>*:nth-child(3n+1):last-child]:col-start-2">
+        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:[&>*:nth-child(3n+1):last-child]:col-start-2">
           {projects.map((project, i) => (
             <Reveal key={project.id} delay={i * 80}>
               <ProjectCard project={project} headingLevel={2} />
@@ -80,9 +69,12 @@ export default async function PortfolioPage({
         </div>
 
         {projects.length === 0 && (
-          <p className="mt-10 text-center text-muted-foreground">
-            No projects found in this category yet.
-          </p>
+          <EmptyState
+            title="No projects in this category yet"
+            body="We're adding case studies regularly. See everything we've shipped so far."
+            actionHref="/portfolio"
+            actionLabel="View all projects"
+          />
         )}
 
         <Pagination

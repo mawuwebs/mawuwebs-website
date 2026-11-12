@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Clock, MapPin, MessageCircle, Phone } from "lucide-react";
 import { PageHeader } from "@/components/site/page-header";
 import { Illustration } from "@/components/site/illustrations";
@@ -6,6 +7,7 @@ import { Section } from "@/components/site/container";
 import { SupportForm } from "@/components/site/support-form";
 import { whatsappHref } from "@/components/site/quick-contact";
 import { getSiteSettings } from "@/lib/settings";
+import { getSupportConfig } from "@/lib/form-config";
 
 export const metadata: Metadata = {
   title: "Get IT support",
@@ -14,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SupportPage() {
-  const settings = await getSiteSettings();
+  const [settings, supportConfig] = await Promise.all([getSiteSettings(), getSupportConfig()]);
   return (
     <>
       <PageHeader
@@ -26,14 +28,14 @@ export default async function SupportPage() {
       <Section>
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.4fr_0.8fr] lg:gap-16">
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-10">
-            <SupportForm />
+            <SupportForm config={supportConfig} />
           </div>
           <aside className="space-y-8 lg:sticky lg:top-24 lg:self-start">
             <div className="rounded-2xl bg-forest p-6 text-white">
               <h2 className="font-display text-lg font-semibold">Need us right now?</h2>
               <ul className="mt-4 space-y-3 text-sm">
                 <li>
-                  <a href={`tel:${settings.phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-3 hover:text-yellow">
+                  <a href={`tel:${settings.phone.replace(/[^\d+]/g, "")}`} className="flex min-h-11 items-center gap-3 hover:text-yellow">
                     <Phone className="size-4 shrink-0 text-orange" />
                     {settings.phone}
                   </a>
@@ -44,7 +46,7 @@ export default async function SupportPage() {
                       href={whatsappHref(settings.whatsapp)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-3 hover:text-yellow"
+                      className="flex min-h-11 items-center gap-3 hover:text-yellow"
                     >
                       <MessageCircle className="size-4 shrink-0 text-orange" />
                       Message us on WhatsApp
@@ -52,6 +54,17 @@ export default async function SupportPage() {
                   </li>
                 )}
               </ul>
+            </div>
+            <div>
+              <h2 className="font-display text-base font-semibold">What happens next</h2>
+              <ol className="mt-3 space-y-3 text-sm text-muted-foreground">
+                {["You send the form. It takes about a minute.", "A technician reads it and contacts you.", "We fix it, or tell you exactly what's needed."].map((step, i) => (
+                  <li key={step} className="flex gap-3">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-forest text-xs font-semibold text-white">{i + 1}</span>
+                    {step}
+                  </li>
+                ))}
+              </ol>
             </div>
             {(settings.supportPromise || settings.serviceArea) && (
               <ul className="space-y-4 text-sm">
@@ -71,9 +84,9 @@ export default async function SupportPage() {
             )}
             <p className="text-sm text-muted-foreground">
               Looking for ongoing cover for your whole team? See our{" "}
-              <a href="/plans" className="font-medium text-accent underline underline-offset-4">
+              <Link href="/plans" className="font-medium text-accent underline underline-offset-4">
                 managed IT plans
-              </a>
+              </Link>
               .
             </p>
           </aside>

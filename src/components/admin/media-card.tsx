@@ -19,13 +19,13 @@ import { Button } from "@/components/ui/button";
 import { deleteMedia } from "@/lib/actions/media";
 import type { MediaModel } from "@/generated/prisma/models";
 
-export function MediaCard({ media }: { media: MediaModel }) {
+export function MediaCard({ media, usedIn = [] }: { media: MediaModel; usedIn?: string[] }) {
   const [pending, startTransition] = React.useTransition();
   const [open, setOpen] = React.useState(false);
 
   function handleDelete() {
     startTransition(async () => {
-      const result = await deleteMedia(media.id);
+      const result = await deleteMedia(media.id, usedIn.length > 0);
       if (result.success) {
         toast.success(result.message);
         setOpen(false);
@@ -43,7 +43,15 @@ export function MediaCard({ media }: { media: MediaModel }) {
   return (
     <div className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
       <Image src={media.url} alt={media.alt} fill sizes="200px" className="object-cover" />
-      <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+      {usedIn.length > 0 && (
+        <span
+          title={usedIn.join("\n")}
+          className="absolute top-2 left-2 rounded-full bg-black/65 px-2 py-0.5 text-[11px] font-medium text-white"
+        >
+          Used in {usedIn.length}
+        </span>
+      )}
+      <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100 max-sm:items-end max-sm:justify-end max-sm:bg-transparent max-sm:p-2">
         <Button type="button" size="icon-sm" variant="secondary" onClick={copyUrl} aria-label="Copy URL">
           <Copy className="size-4" />
         </Button>
@@ -57,7 +65,9 @@ export function MediaCard({ media }: { media: MediaModel }) {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this image?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently remove the file. Any content still referencing it will show a broken image.
+                {usedIn.length > 0
+                  ? `This image is used in ${usedIn.length} place${usedIn.length === 1 ? "" : "s"} (${usedIn.slice(0, 4).join(", ")}${usedIn.length > 4 ? "…" : ""}). Deleting it will leave broken images there.`
+                  : "This will permanently remove the file. It is not used anywhere on the site."}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

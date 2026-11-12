@@ -43,12 +43,12 @@ export default async function FaqPage() {
               <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                 Jump to
               </p>
-              <nav className="mt-3 flex flex-row flex-wrap gap-1 lg:flex-col">
+              <nav aria-label="FAQ categories" className="-mx-5 mt-3 flex flex-row gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 lg:flex-col lg:gap-1 lg:overflow-visible">
                 {Object.keys(grouped).map((category) => (
                   <a
                     key={category}
                     href={`#${toSlug(category)}`}
-                    className="rounded-md px-3 py-2 text-sm font-medium text-foreground/80 hover:bg-muted hover:text-accent lg:px-0 lg:py-1.5 lg:hover:bg-transparent"
+                    className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-border px-4 text-sm font-medium whitespace-nowrap text-foreground/80 hover:bg-muted hover:text-accent lg:min-h-0 lg:rounded-md lg:border-0 lg:px-0 lg:py-1.5 lg:hover:bg-transparent"
                   >
                     {category}
                   </a>

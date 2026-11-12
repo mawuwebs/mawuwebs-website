@@ -20,7 +20,7 @@ export function StatCard({
     >
       <div>
         <p className="text-sm text-muted-foreground">{label}</p>
-        <p className="mt-1 font-display text-3xl font-bold"><StatCountUp value={String(value)} /></p>
+        <p className="mt-1 font-display text-3xl font-bold">{typeof value === "number" ? <StatCountUp value={String(value)} /> : value}</p>
       </div>
       <span className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors duration-300 group-hover:scale-110 group-hover:-rotate-6 group-hover:bg-accent group-hover:text-accent-foreground">
         <Icon className="size-5" />

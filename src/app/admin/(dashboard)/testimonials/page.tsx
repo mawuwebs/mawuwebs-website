@@ -14,12 +14,21 @@ import { ListPageHeader, EmptyState } from "@/components/admin/list-page-header"
 import { PublishToggle } from "@/components/admin/publish-toggle";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { prisma } from "@/lib/prisma";
+import { SearchBox } from "@/components/admin/search-box";
 import { deleteTestimonial, toggleTestimonialStatus } from "@/lib/actions/testimonials";
 
 export const metadata: Metadata = { title: "Testimonials" };
 
-export default async function AdminTestimonialsPage() {
-  const testimonials = await prisma.testimonial.findMany({ orderBy: { order: "asc" } });
+export default async function AdminTestimonialsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const q = ((await searchParams).q ?? "").trim().slice(0, 100);
+  const testimonials = await prisma.testimonial.findMany({
+    where: q ? { OR: [{ name: { contains: q } }, { company: { contains: q } }, { content: { contains: q } }] } : {},
+    orderBy: { order: "asc" },
+  });
 
   return (
     <div className="space-y-6">
@@ -29,6 +38,8 @@ export default async function AdminTestimonialsPage() {
         newHref="/admin/testimonials/new"
         newLabel="New Testimonial"
       />
+
+      <SearchBox placeholder="Search testimonials" className="max-w-sm" />
 
       {testimonials.length === 0 ? (
         <EmptyState message="No testimonials yet. Add your first one." />

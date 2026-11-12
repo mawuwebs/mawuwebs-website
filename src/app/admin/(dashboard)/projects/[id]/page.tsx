@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProjectForm } from "@/components/admin/project-form";
 import { prisma } from "@/lib/prisma";
+import { EditHeader, RevisionHistory } from "@/components/admin/edit-chrome";
 
 export const metadata: Metadata = { title: "Edit Project" };
 
@@ -20,11 +21,9 @@ export default async function EditProjectPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold sm:text-3xl">Edit Project</h1>
-        <p className="mt-1 text-muted-foreground">{project.title}</p>
-      </div>
-      <ProjectForm project={project} categories={categories} tags={tags} />
+      <EditHeader type="project" id={project.id} heading="Edit Project" title={project.title} trashed={!!project.deletedAt} />
+      {!project.deletedAt && <ProjectForm project={project} categories={categories} tags={tags} />}
+      <RevisionHistory type="project" id={project.id} />
     </div>
   );
 }

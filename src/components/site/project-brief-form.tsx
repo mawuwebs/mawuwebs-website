@@ -168,10 +168,12 @@ export function ProjectBriefForm({
   defaultType,
   defaultTimeline,
   fromEstimate,
+  service,
 }: {
   defaultType?: string;
   defaultTimeline?: string;
   fromEstimate?: string;
+  service?: string;
 }) {
   const [state, formAction, pending] = useActionState(submitProjectBrief, initialState);
   const [step, setStep] = React.useState(0);
@@ -304,6 +306,7 @@ export function ProjectBriefForm({
       }}
       noValidate
     >
+      {service && <input type="hidden" name="service" value={service} />}
       {/* Every answer is posted, even from steps that are no longer on screen. */}
       {(Object.keys(values) as (keyof Values)[]).map((k) => (
         <input key={k} type="hidden" name={k} value={values[k]} />

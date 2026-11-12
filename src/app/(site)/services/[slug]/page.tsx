@@ -10,14 +10,14 @@ import { getIcon } from "@/components/site/icon-map";
 import { PageHeader } from "@/components/site/page-header";
 import { RichText } from "@/components/site/rich-text";
 import { CtaBanner } from "@/components/site/cta-banner";
-import { getServiceBySlug, getPublishedServices } from "@/lib/content";
+import { getServiceBySlug, getPublishedServices, live } from "@/lib/content";
 import { getSiteSettings } from "@/lib/settings";
 import { SERVICE_SLUG_TO_BRIEF_TYPE } from "@/lib/brief";
 import { prisma } from "@/lib/prisma";
 
 export async function generateStaticParams() {
   const services = await prisma.service.findMany({
-    where: { status: "PUBLISHED" },
+    where: live(),
     select: { slug: true },
   });
   return services.map((s) => ({ slug: s.slug }));
@@ -115,7 +115,7 @@ export default async function ServiceDetailPage({
               <p className="mt-2 text-sm text-muted-foreground">
                 Let&apos;s discuss your project and see how we can help you reach your goals.
               </p>
-              <Button render={<Link href={briefType ? `/start-a-project?type=${encodeURIComponent(briefType)}` : "/start-a-project"} />} className="mt-5 w-full">
+              <Button render={<Link href={`/start-a-project?${new URLSearchParams({ ...(briefType ? { type: briefType } : {}), service: service.slug })}`} />} className="mt-5 w-full">
                 Request a quote
                 <ArrowRight className="size-4" />
               </Button>

@@ -1,5 +1,6 @@
 "use client";
 
+import { UnsavedGuard } from "@/components/admin/unsaved-guard";
 import { useActionState } from "react";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
@@ -7,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Field, SlugField, SeoFieldset } from "@/components/admin/form-fields";
+import { ScheduleField } from "@/components/admin/schedule-field";
 import { StatusField, SwitchField } from "@/components/admin/status-field";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { GalleryField } from "@/components/admin/gallery-field";
@@ -52,6 +54,7 @@ export function ProjectForm({
 
   return (
     <form action={formAction} className="space-y-6">
+      <UnsavedGuard />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.6fr_1fr]">
         <div className="space-y-6">
           <div className="rounded-2xl border border-border bg-card p-6">
@@ -122,6 +125,7 @@ export function ProjectForm({
         <div className="space-y-6">
           <div className="space-y-5 rounded-2xl border border-border bg-card p-6">
             <StatusField defaultValue={project?.status ?? "DRAFT"} />
+            <ScheduleField defaultValue={project?.scheduledAt} error={state.fieldErrors?.scheduledAt} />
             <SwitchField
               name="featured"
               label="Featured"

@@ -1,3 +1,4 @@
+import { ContactTracker } from "@/components/site/contact-tracker";
 import { Navbar } from "@/components/site/navbar";
 import { Footer } from "@/components/site/footer";
 import { ScrollProgress } from "@/components/site/scroll-progress";
@@ -18,6 +19,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       >
         Skip to content
       </a>
+      <ContactTracker />
       <ScrollProgress />
       <PointerGlow />
       <Navbar siteName={settings.siteName} logo={settings.logo} />

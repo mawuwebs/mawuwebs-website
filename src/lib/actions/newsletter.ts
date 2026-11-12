@@ -11,6 +11,7 @@ const schema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address."),
   // Honeypot
   company_website: z.string().max(0).optional(),
+  source: z.string().trim().max(100).optional(),
 });
 
 export type NewsletterState = {
@@ -28,6 +29,7 @@ export async function subscribeToNewsletter(
   const parsed = schema.safeParse({
     email: formData.get("email"),
     company_website: formData.get("company_website") ?? "",
+    source: formData.get("source") ?? "",
   });
 
   if (!parsed.success) {
@@ -37,7 +39,7 @@ export async function subscribeToNewsletter(
   try {
     const { email } = parsed.data;
     const existing = await prisma.newsletterSubscriber.findUnique({ where: { email } });
-    if (existing?.confirmedAt) {
+    if (existing?.confirmedAt && !existing.unsubscribedAt) {
       return { success: true, message: "You're already subscribed. Thanks!" };
     }
 
@@ -46,8 +48,9 @@ export async function subscribeToNewsletter(
     const token = existing?.token ?? randomBytes(16).toString("hex");
     await prisma.newsletterSubscriber.upsert({
       where: { email },
-      update: { token },
-      create: { email, token, confirmedAt: autoConfirm ? new Date() : null },
+      // Someone who unsubscribed and signs up again has to confirm again.
+      update: { token, unsubscribedAt: null, ...(existing?.unsubscribedAt ? { confirmedAt: autoConfirm ? new Date() : null } : {}) },
+      create: { email, token, source: parsed.data.source ?? "", confirmedAt: autoConfirm ? new Date() : null },
     });
 
     if (autoConfirm) {
@@ -61,7 +64,9 @@ export async function subscribeToNewsletter(
       text: `Please confirm your email address to get our articles:\n\n${siteUrl()}/newsletter/confirm?token=${token}\n\nIf you didn't ask for this, ignore this email and you won't hear from us.`,
     });
     return { success: true, message: "Almost done: check your inbox for a confirmation link." };
-  } catch {
+  } catch (err) {
+    // Never lose a lead silently: the server log is the only place a failed save shows up.
+    console.error("[newsletter] could not save submission", err);
     return { success: false, message: "Something went wrong. Please try again." };
   }
 }
@@ -70,7 +75,7 @@ export async function confirmSubscription(token: string) {
   if (!token) return false;
   const res = await prisma.newsletterSubscriber.updateMany({
     where: { token, confirmedAt: null },
-    data: { confirmedAt: new Date() },
+    data: { confirmedAt: new Date(), unsubscribedAt: null },
   });
   if (res.count > 0) return true;
   return Boolean(await prisma.newsletterSubscriber.findUnique({ where: { token } }));
@@ -78,7 +83,11 @@ export async function confirmSubscription(token: string) {
 
 export async function unsubscribe(token: string) {
   if (!token) return false;
-  const res = await prisma.newsletterSubscriber.deleteMany({ where: { token } });
+  // Keep the row as a suppression record: it stops a later import or resubscribe from silently re-adding them.
+  const res = await prisma.newsletterSubscriber.updateMany({
+    where: { token, unsubscribedAt: null },
+    data: { unsubscribedAt: new Date() },
+  });
   return res.count > 0;
 }
 
@@ -102,7 +111,7 @@ export async function sendNewsletter(_prev: SendState, formData: FormData): Prom
   }
 
   const subscribers = await prisma.newsletterSubscriber.findMany({
-    where: { confirmedAt: { not: null }, token: { not: null } },
+    where: { confirmedAt: { not: null }, unsubscribedAt: null, token: { not: null } },
     select: { email: true, token: true },
   });
   if (subscribers.length === 0) return { success: false, message: "There are no confirmed subscribers yet." };

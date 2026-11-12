@@ -13,19 +13,39 @@ export function statusLabel(status: string) {
   return STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
 }
 
-export type SubmissionKind = "brief" | "estimate" | "support" | "message";
+export type SubmissionKind = "brief" | "estimate" | "support" | "plan" | "message";
 
 export function submissionKind(subject: string): SubmissionKind {
   if (subject === "Project brief") return "brief";
   if (subject === "Project estimate") return "estimate";
   if (subject === "Support request") return "support";
+  if (subject.startsWith("Plan enquiry:")) return "plan";
   return "message";
+}
+
+export const KIND_VALUES: SubmissionKind[] = ["support", "plan", "brief", "estimate", "message"];
+
+/** Prefer the stored `kind` column; fall back to the legacy subject sniffing. */
+export function kindOf(s: { kind?: string | null; subject: string }): SubmissionKind {
+  return (KIND_VALUES as string[]).includes(s.kind ?? "") && s.kind !== "message"
+    ? (s.kind as SubmissionKind)
+    : submissionKind(s.subject);
+}
+
+/** Support requests the visitor marked as work-stopping (a flag set when the form is submitted). */
+export function isUrgent(s: { urgent?: boolean | null }) {
+  return Boolean(s.urgent);
+}
+
+export function formatMoney(n: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 }
 
 export const KIND_LABEL: Record<SubmissionKind, string> = {
   brief: "Project brief",
   estimate: "Estimate",
   support: "Support request",
+  plan: "Plan enquiry",
   message: "Message",
 };
 

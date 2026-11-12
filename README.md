@@ -117,3 +117,22 @@ Draft content never appears on the public site — all public queries (`src/lib/
 - **Image uploads:** Stored locally under `public/uploads` and referenced by URL in the database. For multi-instance/production deployments, point `src/lib/actions/media.ts` at an object storage provider instead.
 - **Seed images:** Demo content photos live under `public/images/seed/` and are referenced by local path in `prisma/seed.ts`. They're bundled as static assets rather than hotlinked to a stock-photo API, since third-party "random by keyword" image services don't reliably return the same photo for the same URL over time.
 - **Brand theme:** Colors live in `src/app/globals.css` as CSS variables (`--brand-forest`, `--brand-orange`, `--brand-yellow`), mapped into Tailwind via `@theme inline`. Both light and dark themes are defined; dark mode is togglable site-wide (`next-themes`).
+
+## Admin notes
+
+- **Deploying schema changes**: after pulling, run `npx prisma migrate deploy` on the server *before* starting the new build. The enquiry pipeline, trash and scheduling need the newer columns, and queries fail without them.
+- **Replying from the admin** sends through SMTP. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM`. Without them the Reply form says email isn't configured and offers "Open in mail app".
+- **Roles**: editors can create and edit content and work enquiries. Permanently deleting anything, and deleting testimonials, FAQs, categories, tags, enquiries and subscribers, is admin-only. Posts, pages, projects and services go to the Trash first and can be restored.
+- **Scheduling**: a published post, page, project or service with a future "Publish at" stays hidden until that time (server timezone). No cron needed.
+- **Preview**: the eye icon (and the Preview button on every edit page) opens `/preview/<type>/<id>`, the real public page including drafts, scheduled and trashed items. Signed-in users only, never indexed.
+- **Version history**: every save of a post, page, project or service keeps the previous version (last 25). Restore from the bottom of the edit page; restoring is itself undoable.
+- **Two-factor sign-in** (TOTP, any authenticator app): turn it on under *Account & security*. You get 8 single-use recovery codes. If an admin is locked out, `npm run admin:password` resets the password, and 2FA can be cleared in `npx prisma studio` (User: totpEnabled=false).
+- **Forgot password** emails a one-hour link (needs SMTP). Changing or resetting a password signs out all existing sessions. Without SMTP use `npm run admin:password -- <email> <new password>`.
+- **⌘K / Ctrl+K** opens quick search in the admin.
+- **Login rate limit** is in memory (per server process). It resets on restart and is not shared across several instances; use Redis/Upstash if you scale out.
+- **Dev tip**: never run `next build` while `next dev` is running; both write to `.next` and the dev server stops responding.
+- **Plans** (admin: Plans) are stored in the database: add, reorder, price, schedule, trash and restore them. The public Plans page and the plan enquiry form read from there. A request for a plan that was since unpublished is rejected with a clear message.
+- **Forms & estimates** (admin only) edits the Support form's issue and urgency options and the whole Estimate wizard (project types, sizes, features, timelines, scoring points, result tiers). "Work-stopping" marks the urgency level that is flagged as urgent. Internal ids stay stable so old enquiries still read correctly. "Reset to defaults" returns to the built-in values.
+- **Contact taps**: taps on phone, WhatsApp and email links are counted anonymously (channel and page only) and shown on the dashboard.
+- **Unsubscribes** are kept as a suppression record (they no longer receive newsletters and show as "Unsubscribed"). Use the delete button on a subscriber to erase the record entirely.
+

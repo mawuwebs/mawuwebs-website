@@ -1,5 +1,6 @@
 "use client";
 
+import { UnsavedGuard } from "@/components/admin/unsaved-guard";
 import { useActionState } from "react";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
@@ -20,6 +21,7 @@ export function FaqForm({ faq }: { faq?: FaqModel }) {
 
   return (
     <form action={formAction} className="max-w-2xl space-y-6">
+      <UnsavedGuard />
       <div className="space-y-5 rounded-2xl border border-border bg-card p-6">
         <Field label="Question" htmlFor="field-question" error={state.fieldErrors?.question}>
           <Input id="field-question" name="question" defaultValue={faq?.question} required />

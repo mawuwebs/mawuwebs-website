@@ -58,6 +58,7 @@ export async function submitContactForm(
         email: parsed.data.email,
         phone: parsed.data.phone || null,
         subject: parsed.data.subject || "",
+        kind: "message",
         message: parsed.data.message,
       },
     });
@@ -68,11 +69,19 @@ export async function submitContactForm(
       subject: `New enquiry: ${parsed.data.subject || parsed.data.name}`,
       text: `From: ${parsed.data.name} <${parsed.data.email}>${parsed.data.phone ? `\nPhone: ${parsed.data.phone}` : ""}\n\n${parsed.data.message}`,
     });
+    await sendMail({
+      to: parsed.data.email,
+      replyTo: notifyEmail(settings.contactEmail),
+      subject: `We received your message | ${settings.siteName}`,
+      text: `Hi ${parsed.data.name.split(" ")[0]},\n\nThanks for getting in touch. We've received your message and will reply within one business day.\n\nYour message:\n\n${parsed.data.message}\n\n${settings.siteName}`,
+    });
     return {
       success: true,
       message: "Thanks for reaching out! We'll get back to you within one business day.",
     };
-  } catch {
+  } catch (err) {
+    // Never lose a lead silently: the server log is the only place a failed save shows up.
+    console.error("[contact] could not save submission", err);
     return {
       success: false,
       message: "Something went wrong while sending your message. Please try again.",

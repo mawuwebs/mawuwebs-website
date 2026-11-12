@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Send newsletter" };
 export default async function SendNewsletterPage() {
   await requireAdmin();
   const count = await prisma.newsletterSubscriber.count({
-    where: { confirmedAt: { not: null }, token: { not: null } },
+    where: { confirmedAt: { not: null }, unsubscribedAt: null, token: { not: null } },
   });
   return (
     <div className="max-w-2xl space-y-6">

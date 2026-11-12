@@ -15,12 +15,20 @@ import { ListPageHeader, EmptyState } from "@/components/admin/list-page-header"
 import { PublishToggle } from "@/components/admin/publish-toggle";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { prisma } from "@/lib/prisma";
+import { SearchBox } from "@/components/admin/search-box";
 import { deleteFaq, toggleFaqStatus } from "@/lib/actions/faqs";
 
 export const metadata: Metadata = { title: "FAQs" };
 
-export default async function AdminFaqsPage() {
-  const faqs = await prisma.faq.findMany({ orderBy: [{ category: "asc" }, { order: "asc" }] });
+export default async function AdminFaqsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const q = ((await searchParams).q ?? "").trim().slice(0, 100);
+  const faqs = await prisma.faq.findMany({
+    where: q ? { OR: [{ question: { contains: q } }, { answer: { contains: q } }] } : {},
+    orderBy: [{ category: "asc" }, { order: "asc" }] });
 
   return (
     <div className="space-y-6">
@@ -30,6 +38,8 @@ export default async function AdminFaqsPage() {
         newHref="/admin/faqs/new"
         newLabel="New FAQ"
       />
+
+      <SearchBox placeholder="Search FAQs" className="max-w-sm" />
 
       {faqs.length === 0 ? (
         <EmptyState message="No FAQs yet. Add your first one." />

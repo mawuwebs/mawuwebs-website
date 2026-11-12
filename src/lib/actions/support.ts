@@ -5,15 +5,15 @@ import { prisma } from "@/lib/prisma";
 import { rateLimited } from "@/lib/rate-limit";
 import { sendMail, notifyEmail } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
-import { SUPPORT_ISSUES, SUPPORT_URGENCY } from "@/lib/support";
+import { getSupportConfig } from "@/lib/form-config";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Please enter your name."),
   email: z.string().trim().email("Enter a valid email address."),
   phone: z.string().trim().min(6, "A phone number helps us reach you fast.").max(30),
   company: z.string().trim().max(120).optional(),
-  issue: z.enum(SUPPORT_ISSUES, { message: "Pick what the problem is about." }),
-  urgency: z.enum(SUPPORT_URGENCY, { message: "Tell us how urgent it is." }),
+  issue: z.string().trim().min(1, "Pick what the problem is about."),
+  urgency: z.string().trim().min(1, "Tell us how urgent it is."),
   description: z.string().trim().min(10, "Describe the problem in a sentence or two."),
   company_website: z.string().max(0).optional(),
 });
@@ -53,7 +53,16 @@ export async function submitSupportRequest(
   }
 
   const d = parsed.data;
-  const urgent = d.urgency === SUPPORT_URGENCY[2];
+  const cfg = await getSupportConfig();
+  const level = cfg.urgency.find((u) => u.label === d.urgency);
+  if (!cfg.issues.includes(d.issue) || !level) {
+    return {
+      success: false,
+      message: "Please fix the highlighted fields.",
+      fieldErrors: { [cfg.issues.includes(d.issue) ? "urgency" : "issue"]: "That option is no longer available. Pick another." },
+    };
+  }
+  const urgent = level.urgent;
   const message = [
     `Issue: ${d.issue}`,
     `Urgency: ${d.urgency}`,
@@ -65,9 +74,11 @@ export async function submitSupportRequest(
 
   try {
     await prisma.contactSubmission.create({
-      data: { name: d.name, email: d.email, phone: d.phone, subject: "Support request", message },
+      data: { name: d.name, email: d.email, phone: d.phone, subject: "Support request", kind: "support", urgent, message },
     });
-  } catch {
+  } catch (err) {
+    // Never lose a lead silently: the server log is the only place a failed save shows up.
+    console.error("[support] could not save submission", err);
     return { success: false, message: "Something went wrong. Please call us or try again." };
   }
 

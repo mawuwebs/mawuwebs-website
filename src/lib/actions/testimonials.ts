@@ -99,6 +99,7 @@ export async function updateTestimonial(
 
 export async function deleteTestimonial(id: string) {
   const user = await requireUser();
+  if (user.role !== "ADMIN") return { success: false, message: "Only admins can delete this." };
   const testimonial = await prisma.testimonial.delete({ where: { id } });
 
   await logActivity({

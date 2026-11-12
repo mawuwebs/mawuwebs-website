@@ -1,5 +1,6 @@
 "use client";
 
+import { UnsavedGuard } from "@/components/admin/unsaved-guard";
 import { useActionState } from "react";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
@@ -27,6 +28,7 @@ export function TestimonialForm({ testimonial }: { testimonial?: TestimonialMode
 
   return (
     <form action={formAction} className="space-y-6">
+      <UnsavedGuard />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.6fr_1fr]">
         <div className="space-y-6 rounded-2xl border border-border bg-card p-6">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">

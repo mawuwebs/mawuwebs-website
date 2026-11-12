@@ -11,9 +11,9 @@ export default {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
+      const publicAuthPaths = ["/admin/login", "/admin/forgot-password", "/admin/reset-password"];
       const isAdminRoute =
-        nextUrl.pathname.startsWith("/admin") &&
-        nextUrl.pathname !== "/admin/login";
+        nextUrl.pathname.startsWith("/admin") && !publicAuthPaths.includes(nextUrl.pathname);
       const isLoginRoute = nextUrl.pathname === "/admin/login";
 
       if (isAdminRoute) return isLoggedIn;

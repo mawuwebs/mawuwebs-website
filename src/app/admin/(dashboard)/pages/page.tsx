@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Pencil } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -9,17 +7,41 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { ListPageHeader, EmptyState } from "@/components/admin/list-page-header";
-import { PublishToggle } from "@/components/admin/publish-toggle";
-import { DeleteButton } from "@/components/admin/delete-button";
+import { ContentStatusCell } from "@/components/admin/content-status-cell";
+import { ContentRowActions } from "@/components/admin/content-row-actions";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { deletePage, togglePageStatus } from "@/lib/actions/pages";
+import { ListToolbar, parseListParams, statusWhere } from "@/components/admin/list-toolbar";
+import { Pagination } from "@/components/admin/pagination";
+
+const PAGE_SIZE = 25;
+import { togglePageStatus } from "@/lib/actions/pages";
 
 export const metadata: Metadata = { title: "Pages" };
 
-export default async function AdminPagesPage() {
-  const pages = await prisma.page.findMany({ orderBy: { updatedAt: "desc" } });
+export default async function AdminPagesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; q?: string; page?: string }>;
+}) {
+  const list = parseListParams(await searchParams, PAGE_SIZE);
+  const where = {
+    AND: [
+      statusWhere(list.status),
+      list.q ? { OR: [{ title: { contains: list.q } }, { slug: { contains: list.q } }] } : {},
+    ],
+  };
+  const isAdmin = (await auth())?.user?.role === "ADMIN";
+  const [pages, total] = await Promise.all([
+    prisma.page.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      take: list.take,
+      skip: list.skip,
+    }),
+    prisma.page.count({ where }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -30,9 +52,12 @@ export default async function AdminPagesPage() {
         newLabel="New Page"
       />
 
+      <ListToolbar basePath="/admin/pages" status={list.status} q={list.q} searchLabel="Search pages" />
+
       {pages.length === 0 ? (
-        <EmptyState message="No pages yet. Create your first one." />
+        <EmptyState message={list.q || list.status ? "Nothing matches these filters." : "No pages yet. Create your first one."} />
       ) : (
+        <>
         <div className="overflow-x-auto rounded-2xl border border-border bg-card">
           <Table>
             <TableHeader>
@@ -50,29 +75,18 @@ export default async function AdminPagesPage() {
                     <p className="text-xs text-muted-foreground">/{page.slug}</p>
                   </TableCell>
                   <TableCell>
-                    <PublishToggle
-                      status={page.status}
-                      action={togglePageStatus.bind(null, page.id)}
-                    />
+                    <ContentStatusCell status={page.status} scheduledAt={page.scheduledAt} deletedAt={page.deletedAt} toggle={togglePageStatus.bind(null, page.id)} />
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        render={<Link href={`/admin/pages/${page.id}`} />}
-                        aria-label={`Edit ${page.title}`}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <DeleteButton itemLabel={page.title} action={deletePage.bind(null, page.id)} />
-                    </div>
+                    <ContentRowActions type="page" id={page.id} title={page.title} editHref={`/admin/pages/${page.id}`} trashed={list.status === "TRASH"} isAdmin={isAdmin} />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
+        <Pagination basePath="/admin/pages" params={{ status: list.status || undefined, q: list.q || undefined }} page={list.page} pageSize={PAGE_SIZE} total={total} />
+        </>
       )}
     </div>
   );

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Menu, LogOut, ExternalLink, User } from "lucide-react";
+import { Menu, LogOut, ExternalLink, User, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -15,34 +15,42 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/site/theme-toggle";
+import { Logo } from "@/components/site/logo";
 import { PointerGlow } from "@/components/site/pointer-glow";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { OrdersLive } from "@/components/admin/orders-live";
+import { CommandPalette } from "@/components/admin/command-palette";
 import { signOutAction } from "@/lib/actions/auth";
 
 export function AdminShell({
   siteName,
   user,
+  badges,
   children,
 }: {
   siteName: string;
   user: { name?: string | null; email?: string | null; role: "ADMIN" | "EDITOR" };
+  badges?: Record<string, number>;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   return (
     <div className="flex min-h-dvh bg-secondary/30">
+      <a
+        href="#admin-main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow"
+      >
+        Skip to content
+      </a>
       <PointerGlow />
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col bg-forest py-6 lg:flex">
-        <Link href="/admin" className="flex items-center gap-2 px-6 font-display text-lg font-bold text-white">
-          <span className="flex size-8 items-center justify-center rounded-md bg-orange text-sm font-bold text-forest transition-transform duration-300 hover:rotate-6 hover:scale-110">
-            {siteName.charAt(0)}
-          </span>
-          {siteName}
+        <Link href="/admin" className="px-6" aria-label={`${siteName} admin home`}>
+          <Logo height={48} name={siteName} nameClassName="text-lg text-white" accentClassName="text-[#f5a623]" />
         </Link>
         <div className="mt-8 flex-1 overflow-y-auto">
-          <AdminNav role={user.role} />
+          <AdminNav role={user.role} badges={badges} />
         </div>
         <div className="mt-6 px-3">
           <Link
@@ -60,10 +68,12 @@ export function AdminShell({
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-72 bg-forest p-0 text-white">
           <SheetHeader>
-            <SheetTitle className="text-white">{siteName}</SheetTitle>
+            <SheetTitle className="text-white">
+              <Logo height={40} name={siteName} nameClassName="text-base text-white" accentClassName="text-[#f5a623]" />
+            </SheetTitle>
           </SheetHeader>
           <div className="mt-4 flex-1 overflow-y-auto pb-6">
-            <AdminNav role={user.role} onNavigate={() => setMobileOpen(false)} />
+            <AdminNav role={user.role} badges={badges} onNavigate={() => setMobileOpen(false)} />
           </div>
         </SheetContent>
       </Sheet>
@@ -80,6 +90,9 @@ export function AdminShell({
             <Menu className="size-5" />
           </Button>
           <div className="hidden lg:block" />
+          <div className="ml-auto mr-2 sm:mr-4">
+            <CommandPalette role={user.role} />
+          </div>
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -106,6 +119,10 @@ export function AdminShell({
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem render={<Link href="/admin/account" className="flex w-full items-center gap-2" />}>
+                  <ShieldCheck className="size-4" />
+                  Account &amp; security
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   render={
                     <form action={signOutAction} className="w-full">
@@ -121,7 +138,8 @@ export function AdminShell({
           </div>
         </header>
 
-        <main className="animate-in fade-in slide-in-from-bottom-2 flex-1 p-4 duration-500 sm:p-6 lg:p-8">{children}</main>
+        <main id="admin-main" className="animate-in fade-in slide-in-from-bottom-2 flex-1 p-4 duration-500 sm:p-6 lg:p-8">{children}</main>
+        <OrdersLive initial={badges?.["/admin/messages:orders"] ?? 0} />
       </div>
     </div>
   );
