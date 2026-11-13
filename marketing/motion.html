@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mawuwebs motion ad</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0b1642; --navy2:#142266; --gold:#f5a623; --w:1080; --h:1920; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { font-size: calc(min(var(--w), var(--h)) * 1px / 100); }
+  body { width:calc(var(--w)*1px); height:calc(var(--h)*1px); overflow:hidden; background:var(--navy);
+         font-family:'Manrope',system-ui,sans-serif; color:#fff; }
+  .stage { position:relative; width:100%; height:100%; overflow:hidden;
+           background:radial-gradient(120% 80% at 85% 0%, var(--navy2), var(--navy) 60%); }
+  .ring { position:absolute; border:.5rem solid var(--gold); border-radius:50%; opacity:.16; animation:drift 14s linear infinite; }
+  @keyframes drift { from{transform:rotate(0) scale(1)} 50%{transform:rotate(25deg) scale(1.08)} to{transform:rotate(0) scale(1)} }
+  .scene { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+           text-align:center; padding:8rem; opacity:0; gap:4rem; }
+  /* timeline: each scene visible within its own window (total 15s) */
+  .s1 { animation:win 3.4s 0s both; } .s2 { animation:win 4.4s 3.2s both; }
+  .s3 { animation:win 4.4s 7.4s both; } .s4 { animation:winlast 3.6s 11.4s both; }
+  @keyframes win { 0%{opacity:0} 8%{opacity:1} 88%{opacity:1} 100%{opacity:0} }
+  @keyframes winlast { 0%{opacity:0} 10%{opacity:1} 100%{opacity:1} }
+  .pop { opacity:0; animation:pop .7s cubic-bezier(.2,1.3,.4,1) both; }
+  @keyframes pop { from{opacity:0; transform:translateY(5rem) scale(.9)} to{opacity:1; transform:none} }
+  /* scene 1: logo */
+  .logo { width:44rem; height:44rem; animation:pop .9s .1s cubic-bezier(.2,1.3,.4,1) both, glow 1.6s .8s ease-in-out 2; filter:drop-shadow(0 0 4rem rgba(245,166,35,.4)); }
+  @keyframes glow { 50%{ filter:drop-shadow(0 0 9rem rgba(245,166,35,.9)); } }
+  .name { font-size:9rem; font-weight:800; letter-spacing:-.03em; animation:pop .7s .8s both; }
+  .name i { font-style:normal; color:var(--gold); }
+  .kick { font-size:3.4rem; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); animation:pop .6s 1.3s both; }
+  /* scene 2: problem → fix */
+  .big { font-size:13rem; line-height:1; font-weight:800; letter-spacing:-.035em; }
+  .strike { position:relative; display:inline-block; color:rgba(255,255,255,.55); animation:pop .6s .1s both; }
+  .strike::after { content:""; position:absolute; left:-2%; top:52%; height:1.2rem; width:0; background:var(--gold); animation:line .5s 1.4s forwards; }
+  @keyframes line { to{width:104%} }
+  .fix { color:var(--gold); animation:pop .7s 2s both; }
+  .small { font-size:3.8rem; font-weight:500; color:rgba(255,255,255,.82); line-height:1.35; animation:pop .6s 2.7s both; }
+  /* scene 3: services cascade */
+  .svc { font-size:9.5rem; font-weight:800; letter-spacing:-.03em; line-height:1.05; }
+  .svc span { display:block; opacity:0; animation:pop .55s both; }
+  .svc span:nth-child(1){animation-delay:.1s} .svc span:nth-child(2){animation-delay:.55s} .svc span:nth-child(3){animation-delay:1s}
+  .svc span:nth-child(4){animation-delay:1.45s} .svc span:nth-child(5){animation-delay:1.9s}
+  .svc span:nth-child(odd){color:#fff} .svc span:nth-child(even){color:var(--gold)}
+  /* scene 4: CTA */
+  .btn { background:var(--gold); color:var(--navy); font-weight:800; font-size:5rem; padding:3.2rem 7rem; border-radius:99rem;
+         animation:pop .7s .5s both, pulse 1.3s 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50%{ transform:scale(1.06); box-shadow:0 0 6rem rgba(245,166,35,.6);} }
+  .url { font-size:5.4rem; font-weight:800; animation:pop .6s 1s both; }
+  .mini { width:20rem; height:20rem; animation:pop .6s both; }
+  .square .logo { width:30rem; height:30rem; } .square .name { font-size:8rem; } .square .big { font-size:11rem; }
+  .square .svc { font-size:8rem; } .square .scene { gap:3rem; padding:6rem; } .square .mini { width:14rem; height:14rem; }
+  .square .small { font-size:3.4rem; } .square .btn { font-size:4.4rem; padding:2.6rem 6rem; } .square .url{ font-size:4.6rem; }
+  /* progress bar */
+  .bar { position:absolute; left:0; bottom:0; height:.9rem; background:var(--gold); width:0; animation:bar 15s linear forwards; }
+  @keyframes bar { to{width:100%} }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="ring" style="width:100rem;height:100rem;right:-40rem;top:-30rem"></div>
+  <div class="ring" style="width:60rem;height:60rem;left:-25rem;bottom:-15rem;animation-direction:reverse"></div>
+
+  <div class="scene s1">
+    <img class="logo" src="../public/images/brand/portrait-mark.webp" alt="">
+    <div class="name">Mawu<i>Webs</i></div>
+    <div class="kick">IT solutions &amp; digital services</div>
+  </div>
+
+  <div class="scene s2">
+    <div class="big"><span class="strike">Slow site?</span></div>
+    <div class="big fix">Not anymore.</div>
+    <div class="small">Fast, modern websites that bring in customers.</div>
+  </div>
+
+  <div class="scene s3">
+    <div class="kick" style="animation-delay:0s">We handle</div>
+    <div class="svc"><span>Websites</span><span>Mobile apps</span><span>Cloud</span><span>Security</span><span>IT support</span></div>
+  </div>
+
+  <div class="scene s4">
+    <img class="mini" src="../public/images/brand/portrait-mark.webp" alt="">
+    <div class="big" style="font-size:11rem">Launching<br><span style="color:var(--gold)">soon.</span></div>
+    <div class="btn">Get early access</div>
+    <div class="url" id="url"></div>
+  </div>
+  <div class="bar"></div>
+</div>
+<script>
+  const SITE = "mawuwebs.com";   // EDIT when final domain is confirmed
+  document.getElementById("url").textContent = SITE;
+  const q = new URLSearchParams(location.search);
+  const w = +q.get("w") || 1080, h = +q.get("h") || 1920;
+  document.documentElement.style.setProperty("--w", w);
+  document.documentElement.style.setProperty("--h", h);
+  if (w === h) document.getElementById("stage").classList.add("square");
+  // hold all animations until fonts load, then start together (recorder polls body[data-go])
+  document.body.style.visibility = "hidden";
+  document.fonts.ready.then(() => { document.body.style.visibility = ""; document.body.dataset.go = "1"; });
+</script>
+</body>
+</html>
