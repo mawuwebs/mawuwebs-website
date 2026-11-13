@@ -3,7 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { Menu, LogOut, ExternalLink, User, ShieldCheck } from "lucide-react";
+import type { Role } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   DropdownMenu,
@@ -29,7 +31,7 @@ export function AdminShell({
   children,
 }: {
   siteName: string;
-  user: { name?: string | null; email?: string | null; role: "ADMIN" | "EDITOR" };
+  user: { name?: string | null; email?: string | null; image?: string | null; role: Role };
   badges?: Record<string, number>;
   children: React.ReactNode;
 }) {
@@ -100,9 +102,12 @@ export function AdminShell({
               <DropdownMenuTrigger
                 render={
                   <Button variant="ghost" className="gap-2 px-2">
-                    <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <User className="size-4" />
-                    </span>
+                    <Avatar size="default">
+                      {user.image && <AvatarImage src={user.image} alt="" />}
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {user.name ? user.name.trim()[0]?.toUpperCase() : <User className="size-4" />}
+                      </AvatarFallback>
+                    </Avatar>
                     <span className="hidden text-sm font-medium sm:inline">
                       {user.name ?? user.email}
                     </span>

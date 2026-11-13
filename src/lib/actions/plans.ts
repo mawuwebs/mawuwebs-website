@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/require-admin";
+import { requireArea } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
 import { parseSchedule, saveRevision } from "@/lib/revisions";
 import { featuresFromText } from "@/lib/plans";
@@ -60,7 +60,7 @@ async function clearOtherHighlights(keepId: string) {
 }
 
 export async function createPlan(_prev: PlanFormState, formData: FormData): Promise<PlanFormState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { success: false, message: "Please fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -89,7 +89,7 @@ export async function createPlan(_prev: PlanFormState, formData: FormData): Prom
 }
 
 export async function updatePlan(id: string, _prev: PlanFormState, formData: FormData): Promise<PlanFormState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { success: false, message: "Please fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -124,7 +124,7 @@ export async function updatePlan(id: string, _prev: PlanFormState, formData: For
 }
 
 export async function togglePlanStatus(id: string) {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const plan = await prisma.plan.findUniqueOrThrow({ where: { id } });
   if (plan.deletedAt) return { success: false, message: "This plan is in the trash. Restore it first." };
   const next = plan.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/require-admin";
+import { requireArea } from "@/lib/require-admin";
 import { toSlug } from "@/lib/slug";
 
 export type TaxonomyState = {
@@ -20,7 +20,7 @@ export async function createCategory(
   _prev: TaxonomyState,
   formData: FormData
 ): Promise<TaxonomyState> {
-  await requireUser();
+  await requireArea("content");
   const parsed = categorySchema.safeParse({
     name: formData.get("name"),
     type: formData.get("type"),
@@ -39,7 +39,7 @@ export async function createCategory(
 }
 
 export async function renameCategory(id: string, name: string): Promise<TaxonomyState> {
-  await requireUser();
+  await requireArea("content");
   const parsed = z.string().trim().min(2).safeParse(name);
   if (!parsed.success) return { success: false, message: "Name must be at least 2 characters." };
 
@@ -50,7 +50,7 @@ export async function renameCategory(id: string, name: string): Promise<Taxonomy
 }
 
 export async function deleteCategory(id: string): Promise<TaxonomyState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   if (user.role !== "ADMIN") return { success: false, message: "Only admins can delete this." };
   await prisma.category.delete({ where: { id } });
   revalidatePath("/admin/taxonomy");
@@ -65,7 +65,7 @@ export async function createTag(
   _prev: TaxonomyState,
   formData: FormData
 ): Promise<TaxonomyState> {
-  await requireUser();
+  await requireArea("content");
   const parsed = tagSchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) {
     return { success: false, message: parsed.error.issues[0].message };
@@ -81,7 +81,7 @@ export async function createTag(
 }
 
 export async function renameTag(id: string, name: string): Promise<TaxonomyState> {
-  await requireUser();
+  await requireArea("content");
   const parsed = z.string().trim().min(2).safeParse(name);
   if (!parsed.success) return { success: false, message: "Name must be at least 2 characters." };
 
@@ -92,7 +92,7 @@ export async function renameTag(id: string, name: string): Promise<TaxonomyState
 }
 
 export async function deleteTag(id: string): Promise<TaxonomyState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   if (user.role !== "ADMIN") return { success: false, message: "Only admins can delete this." };
   await prisma.tag.delete({ where: { id } });
   revalidatePath("/admin/taxonomy");

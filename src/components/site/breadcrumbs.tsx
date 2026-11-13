@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ldJson } from "@/lib/sanitize";
 
 export type BreadcrumbItem = { label: string; href?: string };
 
@@ -29,7 +30,7 @@ export function Breadcrumbs({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }}
       />
       <nav
         aria-label="Breadcrumb"

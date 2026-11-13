@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "mustChangePassword" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "User" ADD COLUMN "lastLoginAt" DATETIME;
+ALTER TABLE "User" ADD COLUMN "disabledAt" DATETIME;

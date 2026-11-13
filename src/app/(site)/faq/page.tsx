@@ -13,9 +13,11 @@ import {
 } from "@/components/ui/accordion";
 import { getPublishedFaqs } from "@/lib/content";
 import { toSlug } from "@/lib/slug";
+import { ldJson } from "@/lib/sanitize";
 
 export const metadata: Metadata = {
   title: "FAQ",
+  alternates: { canonical: "/faq" },
   description: "Answers to common questions about working with Mawuwebs Solutions.",
 };
 
@@ -27,8 +29,24 @@ export default async function FaqPage() {
     return acc;
   }, {});
 
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((f) => ({
+      "@type": "Question",
+      name: f.question,
+      acceptedAnswer: { "@type": "Answer", text: f.answer },
+    })),
+  };
+
   return (
     <>
+      {faqs.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: ldJson(faqLd) }}
+        />
+      )}
       <PageHeader
         eyebrow="FAQ"
         title="Frequently asked questions"

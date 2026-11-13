@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import type { Role } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import authConfig from "@/lib/auth.config";
 import { rateLimited } from "@/lib/rate-limit";
@@ -38,7 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
         });
-        if (!user) return null;
+        if (!user || user.disabledAt) return null;
 
         const isValid = await bcrypt.compare(
           parsed.data.password,
@@ -58,6 +59,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             await prisma.user.update({ where: { id: user.id }, data: { recoveryCodes: JSON.stringify(remaining) } });
           }
         }
+
+        await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
         return {
           id: user.id,
@@ -82,9 +85,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.id) {
         const u = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { role: true, passwordChangedAt: true },
+          select: { role: true, passwordChangedAt: true, disabledAt: true },
         });
-        if (!u) return null;
+        if (!u || u.disabledAt) return null;
         if (u.passwordChangedAt && token.iat && u.passwordChangedAt.getTime() / 1000 > (token.iat as number)) return null;
         token.role = u.role;
       }
@@ -93,7 +96,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as "ADMIN" | "EDITOR";
+        session.user.role = token.role as Role;
       }
       return session;
     },

@@ -9,10 +9,28 @@ import { getPublishedPosts } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Resources",
-  description: "Free tools and guides for planning, building and launching a website.",
+  description: "Free tools and templates for running your business IT and launching a website.",
 };
 
 const TOOLS = [
+  {
+    href: "/it-health-check",
+    title: "IT health check",
+    body: "Twelve questions on backups, security, accounts and support. Get a score and the gaps to fix first.",
+    tag: "Quiz",
+  },
+  {
+    href: "/resources/it-downtime-calculator",
+    title: "What do IT problems cost you?",
+    body: "Enter your own numbers to see the yearly cost of lost staff time and serious outages.",
+    tag: "Calculator",
+  },
+  {
+    href: "/resources/it-toolkit",
+    title: "IT toolkit for small businesses",
+    body: "An acceptable use policy, a backup checklist and an incident response one-pager. Free with your email.",
+    tag: "Templates",
+  },
   {
     href: "/estimate",
     title: "Project estimator",
@@ -39,8 +57,8 @@ export default async function ResourcesPage() {
     <>
       <PageHeader
         eyebrow="Resources"
-        title="Tools for planning a website"
-        description="Free, no sign-up needed."
+        title="Free tools and templates"
+        description="Planning, security and IT housekeeping, in plain language."
       />
       <Section>
         <ul className="border-b border-border">

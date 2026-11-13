@@ -10,17 +10,21 @@ import { TestimonialCard } from "@/components/site/testimonial-card";
 import { CtaBanner } from "@/components/site/cta-banner";
 import { Reveal } from "@/components/site/reveal";
 import { getPageBySlug } from "@/lib/content";
+import { buildMetadata } from "@/lib/seo";
 import { getSiteSettings } from "@/lib/settings";
 import { getPublishedTestimonials } from "@/lib/content";
 
 export async function generateMetadata(): Promise<Metadata> {
   const page = await getPageBySlug("about");
   if (!page) return { title: "About" };
-  return {
+  return buildMetadata({
     title: page.metaTitle ?? page.title,
-    description: page.metaDescription ?? undefined,
-    keywords: page.metaKeywords ?? undefined,
-  };
+    description: page.metaDescription,
+    keywords: page.metaKeywords,
+    path: "/about",
+    image: page.featuredImage,
+    noIndex: page.noIndex,
+  });
 }
 
 export default async function AboutPage() {

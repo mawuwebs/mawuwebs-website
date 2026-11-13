@@ -3,28 +3,20 @@
 import * as React from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
+import { Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { StickySaveBar } from "@/components/admin/sticky-save-bar";
 import { RowsEditor, type Col } from "@/components/admin/rows-editor";
 import { saveFormConfig, resetFormConfig, type FormConfigState } from "@/lib/actions/form-config";
 import { toSlug } from "@/lib/slug";
 import type { EstimateConfig, Option, Tier } from "@/lib/estimate";
 import type { SupportConfig } from "@/lib/support";
+import type { Question } from "@/lib/health-check";
 
 const initial: FormConfigState = { success: false, message: "" };
-
-function Status({ state }: { state: FormConfigState }) {
-  if (!state.message) return null;
-  return (
-    <p role={state.success ? "status" : "alert"} className={`flex items-center gap-2 text-sm ${state.success ? "text-success" : "text-destructive"}`}>
-      {state.success ? <CheckCircle2 className="size-4 shrink-0" /> : <AlertCircle className="size-4 shrink-0" />}
-      {state.message}
-    </p>
-  );
-}
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -38,11 +30,14 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   );
 }
 
-function SaveBar({ configKey, pending, state, customised }: { configKey: "support" | "estimate"; pending: boolean; state: FormConfigState; customised: boolean }) {
+function SaveBar({ configKey, pending, state, customised }: { configKey: "support" | "estimate" | "healthcheck"; pending: boolean; state: FormConfigState; customised: boolean }) {
   const router = useRouter();
+  React.useEffect(() => {
+    if (state.message && state.success) toast.success(state.message);
+  }, [state]);
   const [resetting, startReset] = React.useTransition();
   return (
-    <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+    <StickySaveBar message={state.message} success={state.success}>
       <Button type="submit" disabled={pending}>
         {pending && <Loader2 className="size-4 animate-spin" />}
         Save changes
@@ -68,8 +63,7 @@ function SaveBar({ configKey, pending, state, customised }: { configKey: "suppor
           Reset to defaults
         </Button>
       )}
-      <Status state={state} />
-    </div>
+    </StickySaveBar>
   );
 }
 
@@ -214,4 +208,58 @@ export function EstimateConfigEditor({ initialConfig, customised }: { initialCon
 
 function clean(o: Option): Option {
   return { id: o.id, label: o.label, hint: o.hint || undefined, points: Number(o.points) || 0 };
+}
+
+// ---------------- IT health check ----------------
+
+export function HealthCheckConfigEditor({ initialConfig, customised }: { initialConfig: Question[]; customised: boolean }) {
+  const [questions, setQuestions] = React.useState<Question[]>(initialConfig);
+  const [state, action, pending] = useActionState(saveFormConfig.bind(null, "healthcheck"), initial);
+
+  const used = new Set<string>();
+  const withQuestionIds = questions.map((q) => {
+    if (q.id && !used.has(q.id)) {
+      used.add(q.id);
+      return q;
+    }
+    const base = toSlug(q.text).slice(0, 30) || "question";
+    let id = base;
+    for (let n = 2; used.has(id); n++) id = `${base}-${n}`;
+    used.add(id);
+    return { ...q, id };
+  });
+  const json = JSON.stringify({
+    questions: withQuestionIds.map((q) => ({ ...q, hint: q.hint || undefined })),
+  });
+
+  return (
+    <form action={action} className="space-y-6">
+      <input type="hidden" name="json" value={json} />
+      <p className="rounded-lg bg-secondary/50 p-3 text-sm text-muted-foreground">
+        Each question is answered Yes, Partly or No (2, 1 or 0 points). The score is the total as a percentage. Questions in the same area are
+        grouped in the result. Past leads keep the wording they answered, so edits never change old results.
+      </p>
+      <Section
+        title="Questions"
+        hint="Order here is the order visitors see. “If not Yes” is the gap shown in the result. Service is the slug of the service that fixes it, e.g. cybersecurity."
+      >
+        <RowsEditor
+          rows={questions}
+          onChange={setQuestions}
+          blank={() => ({ id: "", area: questions[questions.length - 1]?.area ?? "", text: "", hint: "", gap: "", service: "" })}
+          addLabel="Add a question"
+          minRows={4}
+          readOnlyId="id"
+          cols={[
+            { key: "area", label: "Area", type: "text", className: "flex-none basis-56" },
+            { key: "text", label: "Question", type: "text", className: "basis-full" },
+            { key: "hint", label: "Hint (optional)", type: "text", className: "basis-full" },
+            { key: "gap", label: "If not Yes, the gap is…", type: "area", className: "basis-full" },
+            { key: "service", label: "Service slug", type: "text", className: "flex-none basis-56" },
+          ]}
+        />
+      </Section>
+      <SaveBar configKey="healthcheck" pending={pending} state={state} customised={customised} />
+    </form>
+  );
 }

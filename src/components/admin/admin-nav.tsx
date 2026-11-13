@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_SECTIONS } from "@/components/admin/nav-config";
+import { can, type Role } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 export function AdminNav({
@@ -10,7 +11,7 @@ export function AdminNav({
   badges,
   onNavigate,
 }: {
-  role: "ADMIN" | "EDITOR";
+  role: Role;
   badges?: Record<string, number>;
   onNavigate?: () => void;
 }) {
@@ -19,7 +20,7 @@ export function AdminNav({
   return (
     <nav className="flex flex-col gap-6 px-3">
       {NAV_SECTIONS.map((section) => {
-        const items = section.items.filter((i) => !i.adminOnly || role === "ADMIN");
+        const items = section.items.filter((i) => (!i.adminOnly || role === "ADMIN") && (!i.area || can(role, i.area)));
         if (items.length === 0) return null;
         return (
           <div key={section.title}>

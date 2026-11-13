@@ -14,6 +14,7 @@ import { CtaBanner } from "@/components/site/cta-banner";
 import { getProjectBySlug, getRelatedProjects, getNextProject, live } from "@/lib/content";
 import { getSiteSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
+import { ldJson } from "@/lib/sanitize";
 
 export async function generateStaticParams() {
   const projects = await prisma.project.findMany({
@@ -32,6 +33,8 @@ export async function generateMetadata({
   const project = await getProjectBySlug(slug);
   if (!project) return { title: "Project" };
   return {
+    robots: project.noIndex ? { index: false, follow: true } : undefined,
+    alternates: { canonical: `/portfolio/${project.slug}` },
     title: project.metaTitle ?? project.title,
     description: project.metaDescription ?? project.description,
     keywords: project.metaKeywords ?? undefined,
@@ -87,7 +90,7 @@ export default async function ProjectDetailPage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }}
       />
       <PageHeader
         eyebrow={project.category?.name ?? "Project"}

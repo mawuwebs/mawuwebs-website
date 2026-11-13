@@ -4,7 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/require-admin";
+import { recordSlugRedirect } from "@/lib/redirects";
+import { requireArea } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
 import { parseSchedule, saveRevision } from "@/lib/revisions";
 
@@ -31,6 +32,7 @@ const schema = z.object({
   metaTitle: z.string().trim().optional(),
   metaDescription: z.string().trim().optional(),
   metaKeywords: z.string().trim().optional(),
+  noIndex: z.boolean(),
 });
 
 export type ProjectFormState = {
@@ -74,6 +76,7 @@ function parseForm(formData: FormData) {
     metaTitle: formData.get("metaTitle"),
     metaDescription: formData.get("metaDescription"),
     metaKeywords: formData.get("metaKeywords"),
+    noIndex: formData.get("noIndex") === "on",
   });
 }
 
@@ -90,7 +93,7 @@ export async function createProject(
   _prev: ProjectFormState,
   formData: FormData
 ): Promise<ProjectFormState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { success: false, message: "Please fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -132,7 +135,7 @@ export async function updateProject(
   _prev: ProjectFormState,
   formData: FormData
 ): Promise<ProjectFormState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { success: false, message: "Please fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -149,6 +152,8 @@ export async function updateProject(
   const schedule = parseSchedule(rawSchedule, data.status);
   if (schedule.error) return { success: false, message: schedule.error, fieldErrors: { scheduledAt: schedule.error } };
   await saveRevision("project", id, user.name ?? "Admin");
+  if (current && current.slug !== data.slug)
+    await recordSlugRedirect("/portfolio", current.slug, data.slug);
   const project = await prisma.project.update({
     where: { id },
     data: {
@@ -176,7 +181,7 @@ export async function updateProject(
 }
 
 export async function toggleProjectStatus(id: string) {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const project = await prisma.project.findUniqueOrThrow({ where: { id } });
   if (project.deletedAt) return { success: false, message: "This item is in the trash. Restore it first." };
   const nextStatus = project.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";

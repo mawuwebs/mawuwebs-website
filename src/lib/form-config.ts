@@ -2,9 +2,10 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_ESTIMATE, type EstimateConfig } from "@/lib/estimate";
 import { DEFAULT_SUPPORT, type SupportConfig } from "@/lib/support";
-import { estimateSchema, supportSchema } from "@/lib/form-config-schema";
+import { QUESTIONS, type Question } from "@/lib/health-check";
+import { estimateSchema, healthCheckSchema, supportSchema } from "@/lib/form-config-schema";
 
-export type FormConfigKey = "support" | "estimate";
+export type FormConfigKey = "support" | "estimate" | "healthcheck";
 
 async function load<T>(key: FormConfigKey, schema: { safeParse(v: unknown): { success: boolean; data?: T } }, fallback: T): Promise<T> {
   try {
@@ -20,3 +21,8 @@ async function load<T>(key: FormConfigKey, schema: { safeParse(v: unknown): { su
 
 export const getSupportConfig = () => load<SupportConfig>("support", supportSchema, DEFAULT_SUPPORT);
 export const getEstimateConfig = () => load<EstimateConfig>("estimate", estimateSchema, DEFAULT_ESTIMATE);
+
+export async function getHealthCheckQuestions(): Promise<Question[]> {
+  const cfg = await load<{ questions: Question[] }>("healthcheck", healthCheckSchema, { questions: QUESTIONS });
+  return cfg.questions;
+}

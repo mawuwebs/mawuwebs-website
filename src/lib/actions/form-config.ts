@@ -4,21 +4,22 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
-import { estimateSchema, supportSchema } from "@/lib/form-config-schema";
+import { estimateSchema, healthCheckSchema, supportSchema } from "@/lib/form-config-schema";
 
 export type FormConfigState = { success: boolean; message: string };
 
-const SCHEMAS = { support: supportSchema, estimate: estimateSchema } as const;
-const LABEL = { support: "support form options", estimate: "estimate wizard" } as const;
+const SCHEMAS = { support: supportSchema, estimate: estimateSchema, healthcheck: healthCheckSchema } as const;
+const LABEL = { support: "support form options", estimate: "estimate wizard", healthcheck: "IT health check questions" } as const;
 
 function refresh() {
   revalidatePath("/admin/forms");
   revalidatePath("/support");
   revalidatePath("/estimate");
+  revalidatePath("/it-health-check");
 }
 
 export async function saveFormConfig(
-  key: "support" | "estimate",
+  key: "support" | "estimate" | "healthcheck",
   _prev: FormConfigState,
   formData: FormData
 ): Promise<FormConfigState> {
@@ -46,7 +47,7 @@ export async function saveFormConfig(
 }
 
 /** Back to the built-in defaults. */
-export async function resetFormConfig(key: "support" | "estimate"): Promise<FormConfigState> {
+export async function resetFormConfig(key: "support" | "estimate" | "healthcheck"): Promise<FormConfigState> {
   try {
     const user = await requireAdmin();
     await prisma.formConfig.deleteMany({ where: { key } });

@@ -18,8 +18,9 @@ export async function loginAction(
   const email = formData.get("email");
   const password = formData.get("password");
   const rawCallback = (formData.get("callbackUrl") as string) || "/admin";
-  // Only same-site admin paths: never redirect to an attacker-supplied URL.
-  const callbackUrl = rawCallback.startsWith("/admin") && !rawCallback.startsWith("//") ? rawCallback : "/admin";
+  // Only same-site admin or portal paths: never redirect to an attacker-supplied URL.
+  const okPrefix = rawCallback.startsWith("/admin") || rawCallback.startsWith("/portal");
+  const callbackUrl = okPrefix && !rawCallback.startsWith("//") ? rawCallback : "/admin";
 
   // Slow down password guessing: per IP overall, and per IP + account.
   const who = String(email ?? "").toLowerCase().slice(0, 100);

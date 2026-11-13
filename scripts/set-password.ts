@@ -20,7 +20,7 @@ async function main() {
     console.error(`No user with email ${email}`);
     process.exit(1);
   }
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(password, 10) } });
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(password, 10), passwordChangedAt: new Date(), mustChangePassword: false } });
   console.log(`Password updated for ${email}`);
 }
 

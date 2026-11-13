@@ -1,8 +1,11 @@
 "use client";
 
 import { UnsavedGuard } from "@/components/admin/unsaved-guard";
+import * as React from "react";
 import { useActionState } from "react";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { Home, Mail, Palette, Share2 } from "lucide-react";
+import { toast } from "sonner";
+import { StickySaveBar } from "@/components/admin/sticky-save-bar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -22,6 +25,15 @@ import { updateSiteSettings, type SettingsFormState } from "@/lib/actions/settin
 import type { SiteSettingsModel, SocialLinkModel } from "@/generated/prisma/models";
 import type { Metric, TrustLogo } from "@/lib/settings";
 
+function GroupHeading({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="border-b border-border pb-2 pt-2">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
 const initialState: SettingsFormState = { success: false, message: "" };
 
 export function SettingsForm({
@@ -32,6 +44,12 @@ export function SettingsForm({
   socialLinks: SocialLinkModel[];
 }) {
   const [state, formAction] = useActionState(updateSiteSettings, initialState);
+
+  React.useEffect(() => {
+    if (!state.message) return;
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
+  }, [state]);
 
   let metrics: Metric[] = [];
   try {
@@ -51,10 +69,10 @@ export function SettingsForm({
       <UnsavedGuard />
       <Tabs defaultValue="brand">
         <TabsList>
-          <TabsTrigger value="brand">Brand</TabsTrigger>
-          <TabsTrigger value="hero">Hero &amp; Homepage</TabsTrigger>
-          <TabsTrigger value="contact">Contact</TabsTrigger>
-          <TabsTrigger value="social">Social Links</TabsTrigger>
+          <TabsTrigger value="brand"><Palette className="size-4" />Brand</TabsTrigger>
+          <TabsTrigger value="hero"><Home className="size-4" />Hero &amp; Homepage</TabsTrigger>
+          <TabsTrigger value="contact"><Mail className="size-4" />Contact</TabsTrigger>
+          <TabsTrigger value="social"><Share2 className="size-4" />Social Links</TabsTrigger>
         </TabsList>
 
         <TabsContent value="brand" keepMounted className="space-y-5 rounded-2xl border border-border bg-card p-6">
@@ -151,6 +169,7 @@ export function SettingsForm({
         </TabsContent>
 
         <TabsContent value="contact" keepMounted className="space-y-5 rounded-2xl border border-border bg-card p-6">
+          <GroupHeading title="Reach you" hint="Shown on the contact page and in the footer." />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <Field label="Contact email" htmlFor="field-contactEmail" error={state.fieldErrors?.contactEmail}>
               <Input
@@ -179,7 +198,7 @@ export function SettingsForm({
               defaultValue={settings.mapEmbedUrl ?? ""}
             />
           </Field>
-        <Field
+          <Field
             label="Booking link"
             htmlFor="field-bookingUrl"
             hint="Cal.com, Calendly or similar. Adds a “Book a 15-min call” button on the contact page."
@@ -192,6 +211,7 @@ export function SettingsForm({
               placeholder="https://cal.com/your-name/intro"
             />
           </Field>
+          <GroupHeading title="Chat and coverage" hint="Optional extras that add buttons and trust cues." />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <Field
               label="WhatsApp number"
@@ -215,6 +235,23 @@ export function SettingsForm({
           >
             <Input id="field-supportPromise" name="supportPromise" defaultValue={settings.supportPromise ?? ""} />
           </Field>
+          <GroupHeading title="Search engine verification" hint="Paste only the content value from each meta tag." />
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <Field
+              label="Google Search Console code"
+              htmlFor="field-googleVerification"
+              hint="Only the content value from the verification meta tag."
+            >
+              <Input id="field-googleVerification" name="googleVerification" defaultValue={settings.googleVerification ?? ""} />
+            </Field>
+            <Field
+              label="Bing Webmaster code"
+              htmlFor="field-bingVerification"
+              hint="Only the content value from the msvalidate.01 meta tag."
+            >
+              <Input id="field-bingVerification" name="bingVerification" defaultValue={settings.bingVerification ?? ""} />
+            </Field>
+          </div>
         </TabsContent>
 
         <TabsContent value="social" keepMounted className="rounded-2xl border border-border bg-card p-6">
@@ -222,20 +259,10 @@ export function SettingsForm({
         </TabsContent>
       </Tabs>
 
-      {state.message && (
-        <p
-          className={`flex items-center gap-2 text-sm ${state.success ? "text-success" : "text-destructive"}`}
-        >
-          {state.success ? (
-            <CheckCircle2 className="size-4 shrink-0" />
-          ) : (
-            <AlertCircle className="size-4 shrink-0" />
-          )}
-          {state.message}
-        </p>
-      )}
-
-      <SubmitButton>Save settings</SubmitButton>
+      <StickySaveBar message={state.message} success={state.success}>
+        <SubmitButton>Save settings</SubmitButton>
+        <span className="text-xs text-muted-foreground">Changes apply to every tab and go live when saved.</span>
+      </StickySaveBar>
     </form>
   );
 }

@@ -43,6 +43,7 @@ export function PageForm({ page }: { page?: PageModel }) {
           </div>
 
           <SeoFieldset
+            defaultNoIndex={page?.noIndex}
             defaultMetaTitle={page?.metaTitle}
             defaultMetaDescription={page?.metaDescription}
             defaultMetaKeywords={page?.metaKeywords}

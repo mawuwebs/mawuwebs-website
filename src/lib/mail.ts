@@ -8,7 +8,7 @@ export function mailConfigured() {
   return Boolean(process.env.SMTP_HOST);
 }
 
-let transport: nodemailer.Transporter | null = null;
+let transport: ReturnType<typeof nodemailer.createTransport> | null = null;
 
 function getTransport() {
   if (!transport) {

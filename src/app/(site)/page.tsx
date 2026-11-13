@@ -18,6 +18,7 @@ import {
   getFeaturedProjects,
   getPublishedTestimonials,
 } from "@/lib/content";
+import { ldJson } from "@/lib/sanitize";
 
 export default async function HomePage() {
   const [settings, services, projects, testimonials] = await Promise.all([
@@ -53,7 +54,7 @@ export default async function HomePage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }}
       />
       <Hero
         headline={settings.heroHeadline}

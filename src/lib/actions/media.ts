@@ -5,8 +5,9 @@ import { mkdir, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/require-admin";
+import { requireArea } from "@/lib/require-admin";
 import { getMediaUsage } from "@/lib/media-usage";
+import { sniffImage } from "@/lib/image-sniff";
 import { logActivity } from "@/lib/activity-log";
 
 const ALLOWED_TYPES: Record<string, string> = {
@@ -30,7 +31,7 @@ export async function uploadMedia(
   _prev: UploadState,
   formData: FormData
 ): Promise<UploadState> {
-  await requireUser();
+  await requireArea("content");
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -50,6 +51,9 @@ export async function uploadMedia(
 
   const filename = `${randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (sniffImage(buffer) !== file.type) {
+    return { success: false, message: "That file isn't a valid image." };
+  }
 
   await mkdir(UPLOAD_DIR, { recursive: true });
   await writeFile(path.join(UPLOAD_DIR, filename), buffer);
@@ -71,7 +75,7 @@ export async function uploadMedia(
 }
 
 export async function deleteMedia(id: string, force = false) {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const media = await prisma.media.findUnique({ where: { id } });
   if (!media) return { success: false, message: "File not found." };
 

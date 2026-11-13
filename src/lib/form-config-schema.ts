@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+
 const optionSchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/, "Internal id must be lowercase letters, numbers or dashes."),
   label: z.string().trim().min(1, "Every option needs a label.").max(100),
@@ -57,3 +58,21 @@ export const supportSchema = z.object({
     .min(2, "Keep at least 2 urgency levels.")
     .max(6),
 });
+
+export const healthCheckSchema = z
+  .object({
+    questions: z
+      .array(
+        z.object({
+          id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/, "Internal id must be lowercase letters, numbers or dashes."),
+          area: z.string().trim().min(1, "Every question needs an area.").max(60),
+          text: z.string().trim().min(5, "Every question needs its wording.").max(300),
+          hint: z.string().trim().max(200).optional(),
+          gap: z.string().trim().min(1, "Say what the gap means if the answer is not Yes.").max(300),
+          service: z.string().trim().max(80),
+        })
+      )
+      .min(4, "Keep at least 4 questions.")
+      .max(30, "Keep it to 30 questions or fewer."),
+  })
+  .refine((v) => uniqueIds(v.questions), "Two questions share the same internal id.");

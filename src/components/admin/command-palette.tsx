@@ -5,23 +5,24 @@ import { useRouter } from "next/navigation";
 import { CornerDownLeft, Plus, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { NAV_SECTIONS } from "@/components/admin/nav-config";
+import { can, type Area, type Role } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-type Command = { id: string; label: string; hint: string; href: string; create?: boolean };
+type Command = { id: string; label: string; hint: string; href: string; create?: boolean; area?: Area };
 
 const CREATE: Command[] = [
-  { id: "c-post", label: "New blog post", hint: "Create", href: "/admin/posts/new", create: true },
-  { id: "c-project", label: "New project", hint: "Create", href: "/admin/projects/new", create: true },
-  { id: "c-service", label: "New service", hint: "Create", href: "/admin/services/new", create: true },
-  { id: "c-plan", label: "New plan", hint: "Create", href: "/admin/plans/new", create: true },
-  { id: "c-page", label: "New page", hint: "Create", href: "/admin/pages/new", create: true },
-  { id: "c-testimonial", label: "New testimonial", hint: "Create", href: "/admin/testimonials/new", create: true },
-  { id: "c-faq", label: "New FAQ", hint: "Create", href: "/admin/faqs/new", create: true },
-  { id: "c-newsletter", label: "Send a newsletter", hint: "Create", href: "/admin/newsletter/send", create: true },
+  { id: "c-post", label: "New blog post", hint: "Create", href: "/admin/posts/new", create: true, area: "content" },
+  { id: "c-project", label: "New project", hint: "Create", href: "/admin/projects/new", create: true, area: "content" },
+  { id: "c-service", label: "New service", hint: "Create", href: "/admin/services/new", create: true, area: "content" },
+  { id: "c-plan", label: "New plan", hint: "Create", href: "/admin/plans/new", create: true, area: "content" },
+  { id: "c-page", label: "New page", hint: "Create", href: "/admin/pages/new", create: true, area: "content" },
+  { id: "c-testimonial", label: "New testimonial", hint: "Create", href: "/admin/testimonials/new", create: true, area: "content" },
+  { id: "c-faq", label: "New FAQ", hint: "Create", href: "/admin/faqs/new", create: true, area: "content" },
+  { id: "c-newsletter", label: "Send a newsletter", hint: "Create", href: "/admin/newsletter/send", create: true, area: "newsletter" },
 ];
 
 /** ⌘K / Ctrl+K quick jump: pages, create actions, or search enquiries by typing a name or email. */
-export function CommandPalette({ role }: { role: "ADMIN" | "EDITOR" }) {
+export function CommandPalette({ role }: { role: Role }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
@@ -30,10 +31,10 @@ export function CommandPalette({ role }: { role: "ADMIN" | "EDITOR" }) {
   const commands = React.useMemo<Command[]>(() => {
     const nav = NAV_SECTIONS.flatMap((s) =>
       s.items
-        .filter((i) => !i.adminOnly || role === "ADMIN")
+        .filter((i) => (!i.adminOnly || role === "ADMIN") && (!i.area || can(role, i.area)))
         .map((i) => ({ id: i.href, label: i.label, hint: s.title, href: i.href }))
     );
-    return [...nav, { id: "account", label: "Account & security", hint: "You", href: "/admin/account" }, ...CREATE];
+    return [...nav, { id: "account", label: "Account & security", hint: "You", href: "/admin/account" }, ...CREATE.filter((c) => !c.area || can(role, c.area))];
   }, [role]);
 
   const term = q.trim().toLowerCase();

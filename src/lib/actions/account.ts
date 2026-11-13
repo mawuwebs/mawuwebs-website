@@ -1,14 +1,18 @@
 "use server";
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
+import path from "node:path";
 import bcrypt from "bcryptjs";
 import QRCode from "qrcode";
 import { z } from "zod";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { signOut } from "@/lib/auth";
 import { requireUser } from "@/lib/require-admin";
 import { rateLimited } from "@/lib/rate-limit";
+import { sniffImage } from "@/lib/image-sniff";
 import { logActivity } from "@/lib/activity-log";
 import { mailConfigured, sendMail, siteUrl } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
@@ -26,7 +30,7 @@ const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 // ---------- Signed-in account actions ----------
 
 export async function changePassword(_prev: AccountState, formData: FormData): Promise<AccountState> {
-  const session = await requireUser();
+  const session = await requireUser({ allowPasswordChange: true });
   if (await rateLimited(`pwchange:${session.id}`, 5, 15 * 60_000)) {
     return { success: false, message: "Too many attempts. Try again in a few minutes." };
   }
@@ -45,17 +49,17 @@ export async function changePassword(_prev: AccountState, formData: FormData): P
   }
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash: await bcrypt.hash(next.data, 10), passwordChangedAt: new Date() },
+    data: { passwordHash: await bcrypt.hash(next.data, 10), passwordChangedAt: new Date(), mustChangePassword: false },
   });
   await logActivity({ userId: user.id, action: "updated", entityType: "User", entityId: user.id, message: `${user.name} changed their password` });
   // Every session issued before now is now invalid, including this one.
-  await signOut({ redirectTo: "/admin/login?reset=1" });
+  await signOut({ redirectTo: user.role === "CLIENT" ? "/portal/login?reset=1" : "/admin/login?reset=1" });
   return { success: true, message: "Password changed." };
 }
 
 /** Step 1 of enabling 2FA: make a secret and QR code. Nothing is enforced until confirmed. */
 export async function beginTotpSetup() {
-  const session = await requireUser();
+  const session = await requireUser({ allowPasswordChange: true });
   const user = await prisma.user.findUniqueOrThrow({ where: { id: session.id } });
   if (user.totpEnabled) return { success: false as const, message: "Two-factor authentication is already on." };
   const secret = generateSecret();
@@ -68,7 +72,7 @@ export async function beginTotpSetup() {
 
 /** Step 2: prove the app works by entering a code. Returns one-time recovery codes. */
 export async function confirmTotpSetup(code: string) {
-  const session = await requireUser();
+  const session = await requireUser({ allowPasswordChange: true });
   if (await rateLimited(`totp-setup:${session.id}`, 10, 15 * 60_000)) {
     return { success: false as const, message: "Too many attempts. Try again in a few minutes." };
   }
@@ -86,7 +90,7 @@ export async function confirmTotpSetup(code: string) {
 }
 
 export async function disableTotp(_prev: AccountState, formData: FormData): Promise<AccountState> {
-  const session = await requireUser();
+  const session = await requireUser({ allowPasswordChange: true });
   if (await rateLimited(`totp-off:${session.id}`, 5, 15 * 60_000)) {
     return { success: false, message: "Too many attempts. Try again in a few minutes." };
   }
@@ -156,10 +160,101 @@ export async function resetPassword(_prev: AccountState, formData: FormData): Pr
   await prisma.$transaction([
     prisma.user.update({
       where: { id: rec.userId },
-      data: { passwordHash: await bcrypt.hash(next.data, 10), passwordChangedAt: new Date() },
+      data: { passwordHash: await bcrypt.hash(next.data, 10), passwordChangedAt: new Date(), mustChangePassword: false },
     }),
     prisma.passwordResetToken.deleteMany({ where: { userId: rec.userId } }),
   ]);
   await logActivity({ userId: rec.userId, action: "updated", entityType: "User", entityId: rec.userId, message: "Password reset by email link" });
-  redirect("/admin/login?reset=1");
+  const who = await prisma.user.findUnique({ where: { id: rec.userId }, select: { role: true } });
+  redirect(who?.role === "CLIENT" ? "/portal/login?reset=1" : "/admin/login?reset=1");
+}
+
+// ---------- Own profile ----------
+
+const AVATAR_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+const AVATAR_MAX = 2 * 1024 * 1024;
+const AVATAR_DIR = path.join(process.cwd(), "public", "uploads", "avatars");
+
+async function removeAvatarFile(url: string | null | undefined) {
+  if (!url?.startsWith("/uploads/avatars/")) return;
+  try {
+    await unlink(path.join(AVATAR_DIR, path.basename(url)));
+  } catch {}
+}
+
+export async function uploadAvatar(formData: FormData): Promise<AccountState & { url?: string }> {
+  const session = await requireUser({ allowPasswordChange: true });
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { success: false, message: "Choose an image first." };
+  const ext = AVATAR_TYPES[file.type];
+  if (!ext) return { success: false, message: "Use a JPG, PNG or WEBP image." };
+  if (file.size > AVATAR_MAX) return { success: false, message: "Image is too large. Maximum is 2MB." };
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  if (sniffImage(buffer) !== file.type) return { success: false, message: "That file isn't a valid image." };
+
+  await mkdir(AVATAR_DIR, { recursive: true });
+  const filename = `${randomUUID()}.${ext}`;
+  await writeFile(path.join(AVATAR_DIR, filename), buffer);
+
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.id }, select: { image: true } });
+  const url = `/uploads/avatars/${filename}`;
+  await prisma.user.update({ where: { id: session.id }, data: { image: url } });
+  await removeAvatarFile(user.image);
+  revalidatePath("/admin", "layout");
+  return { success: true, message: "Photo updated.", url };
+}
+
+export async function removeAvatar(): Promise<AccountState> {
+  const session = await requireUser({ allowPasswordChange: true });
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.id }, select: { image: true } });
+  await prisma.user.update({ where: { id: session.id }, data: { image: null } });
+  await removeAvatarFile(user.image);
+  revalidatePath("/admin", "layout");
+  return { success: true, message: "Photo removed." };
+}
+
+const profileSchema = z.object({
+  name: z.string().trim().min(2, "Enter your name.").max(100),
+  email: z.string().trim().toLowerCase().email("Enter a valid email.").max(200),
+});
+
+/** Changing the email needs the current password, because it is the sign-in identity. */
+export async function updateOwnProfile(_prev: AccountState, formData: FormData): Promise<AccountState> {
+  const session = await requireUser({ allowPasswordChange: true });
+  if (await rateLimited(`profile:${session.id}`, 10, 15 * 60_000)) {
+    return { success: false, message: "Too many attempts. Try again in a few minutes." };
+  }
+  const parsed = profileSchema.safeParse({ name: formData.get("name"), email: formData.get("email") });
+  if (!parsed.success) return { success: false, message: parsed.error.issues[0].message };
+
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.id } });
+  const emailChanged = parsed.data.email !== user.email;
+  if (emailChanged) {
+    if (!(await bcrypt.compare(String(formData.get("password") ?? ""), user.passwordHash))) {
+      return { success: false, message: "Enter your current password to change your email." };
+    }
+    const clash = await prisma.user.findFirst({ where: { email: parsed.data.email, id: { not: user.id } } });
+    if (clash) return { success: false, message: "That email is already in use." };
+  }
+  if (parsed.data.name === user.name && !emailChanged) return { success: true, message: "Nothing to change." };
+
+  await prisma.user.update({ where: { id: user.id }, data: parsed.data });
+  await logActivity({
+    userId: user.id,
+    action: "updated",
+    entityType: "User",
+    entityId: user.id,
+    message: `${user.name} updated their profile${emailChanged ? " (email changed)" : ""}`,
+  });
+  revalidatePath("/admin", "layout");
+  if (emailChanged) {
+    const settings = await getSiteSettings();
+    await sendMail({
+      to: user.email,
+      subject: `Your ${settings.siteName} admin email was changed`,
+      text: `Hi ${user.name.split(" ")[0]},\n\nThe sign-in email on your admin account was changed to ${parsed.data.email}.\n\nIf this wasn't you, contact your site administrator right away.`,
+    });
+  }
+  return { success: true, message: "Profile saved." };
 }

@@ -43,6 +43,10 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s | ${settings.siteName}`,
     },
     description: settings.heroSubheading,
+    verification: {
+      google: settings.googleVerification ?? undefined,
+      other: settings.bingVerification ? { "msvalidate.01": settings.bingVerification } : undefined,
+    },
     icons: settings.favicon ? [{ url: settings.favicon }] : undefined,
     openGraph: {
       title: settings.siteName,

@@ -64,6 +64,8 @@ export function PostForm({
           </div>
 
           <SeoFieldset
+            pathPrefix="/blog/"
+            defaultNoIndex={post?.noIndex}
             defaultMetaTitle={post?.metaTitle}
             defaultMetaDescription={post?.metaDescription}
             defaultMetaKeywords={post?.metaKeywords}

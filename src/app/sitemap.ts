@@ -1,10 +1,32 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { live, livePost } from "@/lib/content";
+import { INDUSTRIES } from "@/lib/industries";
+import { SYSTEM_PAGE_SLUGS } from "@/lib/seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
 
+  const [pages, services, projects, posts] = await Promise.all([
+    prisma.page.findMany({
+      where: { ...live(), noIndex: false },
+      select: { slug: true, updatedAt: true },
+    }),
+    prisma.service.findMany({
+      where: { ...live(), noIndex: false },
+      select: { slug: true, updatedAt: true },
+    }),
+    prisma.project.findMany({
+      where: { ...live(), noIndex: false },
+      select: { slug: true, updatedAt: true },
+    }),
+    prisma.post.findMany({
+      where: { ...livePost(), noIndex: false },
+      select: { slug: true, updatedAt: true },
+    }),
+  ]);
+
+  const pageDates = new Map(pages.map((p) => [p.slug, p.updatedAt]));
   const staticRoutes: MetadataRoute.Sitemap = [
     "",
     "/about",
@@ -20,31 +42,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/estimate",
     "/resources",
     "/resources/website-launch-checklist",
+    "/resources/it-toolkit",
+    "/it-health-check",
+    "/book-a-call",
+    ...INDUSTRIES.map((i) => `/it-for/${i.slug}`),
+    "/resources/it-downtime-calculator",
     "/privacy-policy",
     "/terms-of-service",
   ].map((path) => ({
     url: `${baseUrl}${path}`,
-    lastModified: new Date(),
+    lastModified: pageDates.get(path.slice(1)),
     changeFrequency: "weekly",
     priority: path === "" ? 1 : 0.7,
   }));
 
-  const [services, projects, posts] = await Promise.all([
-    prisma.service.findMany({
-      where: live(),
-      select: { slug: true, updatedAt: true },
-    }),
-    prisma.project.findMany({
-      where: live(),
-      select: { slug: true, updatedAt: true },
-    }),
-    prisma.post.findMany({
-      where: livePost(),
-      select: { slug: true, updatedAt: true },
-    }),
-  ]);
-
   const dynamicRoutes: MetadataRoute.Sitemap = [
+    ...pages
+      .filter((p) => !SYSTEM_PAGE_SLUGS.includes(p.slug))
+      .map((p) => ({
+        url: `${baseUrl}/${p.slug}`,
+        lastModified: p.updatedAt,
+        changeFrequency: "monthly" as const,
+        priority: 0.5,
+      })),
     ...services.map((s) => ({
       url: `${baseUrl}/services/${s.slug}`,
       lastModified: s.updatedAt,

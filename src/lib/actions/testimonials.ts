@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/require-admin";
+import { requireArea } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
 
 const schema = z.object({
@@ -50,7 +50,7 @@ export async function createTestimonial(
   _prev: TestimonialFormState,
   formData: FormData
 ): Promise<TestimonialFormState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { success: false, message: "Please fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -76,7 +76,7 @@ export async function updateTestimonial(
   _prev: TestimonialFormState,
   formData: FormData
 ): Promise<TestimonialFormState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { success: false, message: "Please fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -98,7 +98,7 @@ export async function updateTestimonial(
 }
 
 export async function deleteTestimonial(id: string) {
-  const user = await requireUser();
+  const user = await requireArea("content");
   if (user.role !== "ADMIN") return { success: false, message: "Only admins can delete this." };
   const testimonial = await prisma.testimonial.delete({ where: { id } });
 
@@ -116,7 +116,7 @@ export async function deleteTestimonial(id: string) {
 }
 
 export async function toggleTestimonialStatus(id: string) {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const testimonial = await prisma.testimonial.findUniqueOrThrow({ where: { id } });
   const nextStatus = testimonial.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
 

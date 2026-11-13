@@ -28,6 +28,8 @@ const DEFAULTS = {
   bookingUrl: null as string | null,
   whatsapp: null as string | null,
   serviceArea: null as string | null,
+  googleVerification: null as string | null,
+  bingVerification: null as string | null,
   supportPromise: null as string | null,
   trustLogos: "[]",
 };

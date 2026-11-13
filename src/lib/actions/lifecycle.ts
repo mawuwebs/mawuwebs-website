@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireUser } from "@/lib/require-admin";
+import { requireAdmin, requireArea } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
 import { ENTITIES, delegate, isEntityType, saveRevision, snapshotToUpdate, type EntityType } from "@/lib/revisions";
 
@@ -34,7 +34,7 @@ async function guard(fn: () => Promise<Result>): Promise<Result> {
 /** Moves an item to the trash: hidden from the site, restorable. */
 export async function trashItem(type: string, id: string): Promise<Result> {
   return guard(async () => {
-    const user = await requireUser();
+    const user = await requireArea("content");
     const { type: t, title, slug } = await load(type, id);
     await delegate(t).update({ where: { id }, data: { deletedAt: new Date() } });
     await logActivity({ userId: user.id, action: "deleted", entityType: t, entityId: id, message: `Moved ${ENTITIES[t].label} "${title}" to the trash` });
@@ -45,7 +45,7 @@ export async function trashItem(type: string, id: string): Promise<Result> {
 
 export async function restoreItem(type: string, id: string): Promise<Result> {
   return guard(async () => {
-    const user = await requireUser();
+    const user = await requireArea("content");
     const { type: t, title, slug } = await load(type, id);
     await delegate(t).update({ where: { id }, data: { deletedAt: null } });
     await logActivity({ userId: user.id, action: "restored", entityType: t, entityId: id, message: `Restored ${ENTITIES[t].label} "${title}"` });
@@ -71,7 +71,7 @@ export async function purgeItem(type: string, id: string): Promise<Result> {
 /** Restores an older version. The current version is saved first, so this is itself undoable. */
 export async function restoreRevision(revisionId: string): Promise<Result> {
   return guard(async () => {
-    const user = await requireUser();
+    const user = await requireArea("content");
     const rev = await prisma.revision.findUnique({ where: { id: revisionId } });
     if (!rev || !isEntityType(rev.entityType)) return { success: false, message: "Version not found." };
     const t = rev.entityType;

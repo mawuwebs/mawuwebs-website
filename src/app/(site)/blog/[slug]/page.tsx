@@ -18,6 +18,7 @@ import { readingTime } from "@/lib/reading-time";
 import { getPostBySlug, getRelatedPosts, livePost } from "@/lib/content";
 import { getSiteSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
+import { ldJson } from "@/lib/sanitize";
 
 export async function generateStaticParams() {
   const posts = await prisma.post.findMany({
@@ -36,6 +37,8 @@ export async function generateMetadata({
   const post = await getPostBySlug(slug);
   if (!post) return { title: "Article" };
   return {
+    robots: post.noIndex ? { index: false, follow: true } : undefined,
+    alternates: { canonical: `/blog/${post.slug}` },
     title: post.metaTitle ?? post.title,
     description: post.metaDescription ?? post.excerpt,
     keywords: post.metaKeywords ?? undefined,
@@ -83,7 +86,7 @@ export default async function BlogPostPage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }}
       />
       <div className="border-b border-border bg-secondary/40">
         <Container className="py-16 sm:py-20">

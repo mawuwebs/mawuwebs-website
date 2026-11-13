@@ -12,6 +12,9 @@ datasource db {
 enum Role {
   ADMIN
   EDITOR
+  CONTENT
+  SUPPORT
+  CLIENT
 }
 
 enum ContentStatus {
@@ -45,12 +48,23 @@ model User {
   totpLastStep      Int?
   recoveryCodes     String    @default("[]")
   passwordChangedAt DateTime?
+  mustChangePassword Boolean  @default(false)
+  lastLoginAt       DateTime?
+  disabledAt        DateTime?
+  company           String    @default("")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   posts         Post[]
   activityLogs  ActivityLog[]
   resetTokens   PasswordResetToken[]
+  tickets       Ticket[]
+  assets        ClientAsset[]
+  documents     ClientDocument[]
+  projects      ClientProject[]
+  quotes        Quote[]
+  invoices      Invoice[]
+  enquiries     ContactSubmission[]
 }
 
 model Page {
@@ -63,6 +77,7 @@ model Page {
   metaTitle       String?
   metaDescription String?
   metaKeywords    String?
+  noIndex         Boolean       @default(false)
   publishedAt     DateTime?
   scheduledAt     DateTime?
   deletedAt       DateTime?
@@ -85,6 +100,7 @@ model Service {
   metaTitle       String?
   metaDescription String?
   metaKeywords    String?
+  noIndex         Boolean       @default(false)
   publishedAt     DateTime?
   scheduledAt     DateTime?
   deletedAt       DateTime?
@@ -113,6 +129,7 @@ model Project {
   metaTitle       String?
   metaDescription String?
   metaKeywords    String?
+  noIndex         Boolean       @default(false)
   publishedAt     DateTime?
   scheduledAt     DateTime?
   deletedAt       DateTime?
@@ -136,6 +153,7 @@ model Post {
   metaTitle       String?
   metaDescription String?
   metaKeywords    String?
+  noIndex         Boolean       @default(false)
   publishedAt     DateTime?
   scheduledAt     DateTime?
   deletedAt       DateTime?
@@ -229,6 +247,8 @@ model SiteSettings {
   serviceArea           String?
   supportPromise        String?
   trustLogos            String   @default("[]")
+  googleVerification    String?
+  bingVerification      String?
   updatedAt             DateTime @updatedAt
 }
 
@@ -245,10 +265,16 @@ model ContactSubmission {
   serviceSlug String           @default("")
   status      SubmissionStatus @default(NEW)
   quoteAmount Int?
+  lostReason  String           @default("")
   followUpAt  DateTime?
   repliedAt   DateTime?
   statusChangedAt DateTime?
   createdAt   DateTime         @default(now())
+
+  /// Set when the enquiry has been turned into (or matched to) a client.
+  clientId    String?
+  client      User?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  quotes      Quote[]
 
   @@index([status, createdAt])
   @@index([kind])
@@ -343,4 +369,238 @@ model ContactClick {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+model Redirect {
+  id        String   @id @default(cuid())
+  fromPath  String   @unique
+  toPath    String
+  permanent Boolean  @default(true)
+  hits      Int      @default(0)
+  auto      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+}
+
+/// Client portal: a support request raised by a CLIENT user.
+model Ticket {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  body      String
+  urgent    Boolean      @default(false)
+  status    TicketStatus @default(OPEN)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  resolvedAt DateTime?
+  replies   TicketReply[]
+
+  @@index([userId, createdAt])
+  @@index([status, updatedAt])
+}
+
+model TicketReply {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  /// Null when the client wrote it.
+  staffName String?
+  body      String
+  /// Staff-only note, never shown in the portal.
+  internal  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+/// Things we look after for a client: devices, licences, domains.
+model ClientAsset {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  type       String    @default("Device")
+  details    String    @default("")
+  assignedTo String    @default("")
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Reports, invoices and contracts shared with a client. Reports carry their text in `body`; others link to a file.
+model ClientDocument {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  kind      String   @default("report")
+  body      String   @default("")
+  url       String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Client work and billing. All money is an integer in minor units (pesewas,
+// cents) with a currency code, never a float. Tax rates are basis points
+// (1250 = 12.5%).
+// ---------------------------------------------------------------------------
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  REVIEW
+  ON_HOLD
+  DONE
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  DECLINED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  VOID
+}
+
+/// Work we do for a client. Not the public portfolio (that is `Project`).
+model ClientProject {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  summary     String        @default("")
+  status      ProjectStatus @default(PLANNING)
+  startDate   DateTime?
+  dueDate     DateTime?
+  /// JSON array of { title, done, dueDate? }.
+  milestones  String        @default("[]")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  quotes      Quote[]
+  invoices    Invoice[]
+
+  @@index([userId, createdAt])
+}
+
+model Quote {
+  id            String       @id @default(cuid())
+  number        String       @unique
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId     String?
+  project       ClientProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  submissionId  String?
+  submission    ContactSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  title         String
+  currency      String       @default("GHS")
+  taxBp         Int          @default(0)
+  notes         String       @default("")
+  status        QuoteStatus  @default(DRAFT)
+  validUntil    DateTime?
+  /// Unguessable id for the emailed link.
+  token         String       @unique
+  sentAt        DateTime?
+  acceptedAt    DateTime?
+  acceptedBy    String?
+  declinedAt    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  items         QuoteItem[]
+  invoices      Invoice[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model QuoteItem {
+  id          String @id @default(cuid())
+  quoteId     String
+  quote       Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int    @default(1)
+  unitAmount  Int
+  position    Int    @default(0)
+
+  @@index([quoteId, position])
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  number      String        @unique
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     ClientProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  quoteId     String?
+  quote       Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  title       String
+  currency    String        @default("GHS")
+  taxBp       Int           @default(0)
+  notes       String        @default("")
+  status      InvoiceStatus @default(DRAFT)
+  issueDate   DateTime      @default(now())
+  dueDate     DateTime?
+  token       String        @unique
+  sentAt      DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  items       InvoiceItem[]
+  payments    Payment[]
+
+  @@index([userId, createdAt])
+  @@index([status, dueDate])
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int     @default(1)
+  unitAmount  Int
+  position    Int     @default(0)
+
+  @@index([invoiceId, position])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount    Int
+  /// momo | bank | cash | card | paystack | stripe | other
+  method    String   @default("bank")
+  reference String   @default("")
+  note      String   @default("")
+  paidAt    DateTime @default(now())
+  /// Gateway transaction id. Unique so a replayed webhook cannot record the same payment twice.
+  externalId String? @unique
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId, paidAt])
+}
+
+/// Atomic counters for document numbers (key like "invoice-2026").
+model Sequence {
+  key   String @id
+  value Int    @default(0)
 }

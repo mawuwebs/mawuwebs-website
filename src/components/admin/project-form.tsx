@@ -116,6 +116,8 @@ export function ProjectForm({
           </div>
 
           <SeoFieldset
+            pathPrefix="/portfolio/"
+            defaultNoIndex={project?.noIndex}
             defaultMetaTitle={project?.metaTitle}
             defaultMetaDescription={project?.metaDescription}
             defaultMetaKeywords={project?.metaKeywords}

@@ -4,7 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/require-admin";
+import { recordSlugRedirect } from "@/lib/redirects";
+import { requireArea } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
 import { omitSchedule, parseSchedule, saveRevision } from "@/lib/revisions";
 
@@ -18,6 +19,7 @@ const schema = z.object({
   metaTitle: z.string().trim().optional(),
   metaDescription: z.string().trim().optional(),
   metaKeywords: z.string().trim().optional(),
+  noIndex: z.boolean(),
 });
 
 export type PageFormState = {
@@ -37,6 +39,7 @@ function parseForm(formData: FormData) {
     metaTitle: formData.get("metaTitle"),
     metaDescription: formData.get("metaDescription"),
     metaKeywords: formData.get("metaKeywords"),
+    noIndex: formData.get("noIndex") === "on",
   });
 }
 
@@ -53,7 +56,7 @@ export async function createPage(
   _prev: PageFormState,
   formData: FormData
 ): Promise<PageFormState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { success: false, message: "Please fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -92,7 +95,7 @@ export async function updatePage(
   _prev: PageFormState,
   formData: FormData
 ): Promise<PageFormState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { success: false, message: "Please fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -108,6 +111,8 @@ export async function updatePage(
   const schedule = parseSchedule(parsed.data.scheduledAt, parsed.data.status);
   if (schedule.error) return { success: false, message: schedule.error, fieldErrors: { scheduledAt: schedule.error } };
   await saveRevision("page", id, user.name ?? "Admin");
+  if (current && current.slug !== parsed.data.slug)
+    await recordSlugRedirect("", current.slug, parsed.data.slug);
   const page = await prisma.page.update({
     where: { id },
     data: {
@@ -132,7 +137,7 @@ export async function updatePage(
 }
 
 export async function togglePageStatus(id: string) {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const page = await prisma.page.findUniqueOrThrow({ where: { id } });
   if (page.deletedAt) return { success: false, message: "This item is in the trash. Restore it first." };
   const nextStatus = page.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";

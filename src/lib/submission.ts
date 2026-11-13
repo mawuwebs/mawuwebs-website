@@ -13,17 +13,19 @@ export function statusLabel(status: string) {
   return STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
 }
 
-export type SubmissionKind = "brief" | "estimate" | "support" | "plan" | "message";
+export type SubmissionKind = "brief" | "estimate" | "support" | "plan" | "healthcheck" | "booking" | "message";
 
 export function submissionKind(subject: string): SubmissionKind {
   if (subject === "Project brief") return "brief";
   if (subject === "Project estimate") return "estimate";
   if (subject === "Support request") return "support";
   if (subject.startsWith("Plan enquiry:")) return "plan";
+  if (subject.startsWith("IT health check:")) return "healthcheck";
+  if (subject.startsWith("Call request:")) return "booking";
   return "message";
 }
 
-export const KIND_VALUES: SubmissionKind[] = ["support", "plan", "brief", "estimate", "message"];
+export const KIND_VALUES: SubmissionKind[] = ["support", "plan", "healthcheck", "booking", "brief", "estimate", "message"];
 
 /** Prefer the stored `kind` column; fall back to the legacy subject sniffing. */
 export function kindOf(s: { kind?: string | null; subject: string }): SubmissionKind {
@@ -46,6 +48,8 @@ export const KIND_LABEL: Record<SubmissionKind, string> = {
   estimate: "Estimate",
   support: "Support request",
   plan: "Plan enquiry",
+  healthcheck: "IT health check",
+  booking: "Call booking",
   message: "Message",
 };
 
@@ -62,3 +66,12 @@ export function parseSubmission(message: string) {
   const body = lines.slice(i).join("\n").replace(/^\s*(About the project:|Notes:)\s*/i, "").trim();
   return { fields, body, structured: fields.length >= 2 };
 }
+
+export const LOST_REASONS = [
+  "Price too high",
+  "Chose another provider",
+  "No response",
+  "Not a good fit",
+  "Bad timing",
+  "Other",
+] as const;

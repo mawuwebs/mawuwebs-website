@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireUser } from "@/lib/require-admin";
+import { requireAdmin, requireArea } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
 import { sendMail, mailConfigured } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
@@ -30,7 +30,7 @@ async function guard(fn: () => Promise<Result>): Promise<Result> {
 
 export async function saveSubmissionNotes(id: string, notes: string): Promise<Result> {
   return guard(async () => {
-    await requireUser();
+    await requireArea("orders");
     await prisma.contactSubmission.update({ where: { id }, data: { notes: notes.slice(0, 5000) } });
     refresh();
     return { success: true, message: "Notes saved." };
@@ -39,7 +39,7 @@ export async function saveSubmissionNotes(id: string, notes: string): Promise<Re
 
 export async function setSubmissionStatus(id: string, status: SubmissionStatusValue): Promise<Result> {
   return guard(async () => {
-    const user = await requireUser();
+    const user = await requireArea("orders");
     if (!isStatus(status)) return { success: false, message: "Unknown status." };
     const s = await prisma.contactSubmission.update({ where: { id }, data: { status, statusChangedAt: new Date() } });
     // Opening a NEW enquiry marks it READ automatically; that is noise, not worth logging.
@@ -63,7 +63,7 @@ export async function saveSubmissionPipeline(
   input: { quoteAmount: string; followUpAt: string }
 ): Promise<Result> {
   return guard(async () => {
-    const user = await requireUser();
+    const user = await requireArea("orders");
     const raw = input.quoteAmount.replace(/[^0-9.]/g, "");
     const quoteAmount = raw ? Math.round(Number(raw)) : null;
     if (quoteAmount !== null && (!Number.isFinite(quoteAmount) || quoteAmount > 100_000_000)) {
@@ -87,13 +87,30 @@ export async function saveSubmissionPipeline(
   });
 }
 
+export async function saveLostReason(id: string, reason: string): Promise<Result> {
+  return guard(async () => {
+    const user = await requireArea("orders");
+    const lostReason = reason.trim().slice(0, 100);
+    const s = await prisma.contactSubmission.update({ where: { id }, data: { lostReason } });
+    await logActivity({
+      userId: user.id,
+      action: "updated",
+      entityType: "Enquiry",
+      entityId: id,
+      message: `Recorded lost reason for ${s.name}: ${lostReason || "cleared"}`,
+    });
+    refresh();
+    return { success: true, message: "Reason saved." };
+  });
+}
+
 /** Emails the enquirer from the admin and marks the lead as replied. */
 export async function replyToSubmission(
   id: string,
   input: { subject: string; body: string }
 ): Promise<Result> {
   return guard(async () => {
-    const user = await requireUser();
+    const user = await requireArea("orders");
     const subject = input.subject.trim().slice(0, 200);
     const body = input.body.trim().slice(0, 10_000);
     if (!subject || body.length < 2) return { success: false, message: "Write a subject and a message." };
@@ -130,7 +147,7 @@ export async function replyToSubmission(
 
 export async function bulkSetStatus(ids: string[], status: SubmissionStatusValue): Promise<Result> {
   return guard(async () => {
-    const user = await requireUser();
+    const user = await requireArea("orders");
     if (!isStatus(status)) return { success: false, message: "Unknown status." };
     const list = ids.slice(0, 500);
     if (list.length === 0) return { success: false, message: "Nothing selected." };

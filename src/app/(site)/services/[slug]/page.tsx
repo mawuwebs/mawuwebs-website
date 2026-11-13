@@ -14,6 +14,7 @@ import { getServiceBySlug, getPublishedServices, live } from "@/lib/content";
 import { getSiteSettings } from "@/lib/settings";
 import { SERVICE_SLUG_TO_BRIEF_TYPE } from "@/lib/brief";
 import { prisma } from "@/lib/prisma";
+import { ldJson } from "@/lib/sanitize";
 
 export async function generateStaticParams() {
   const services = await prisma.service.findMany({
@@ -32,6 +33,8 @@ export async function generateMetadata({
   const service = await getServiceBySlug(slug);
   if (!service) return { title: "Service" };
   return {
+    robots: service.noIndex ? { index: false, follow: true } : undefined,
+    alternates: { canonical: `/services/${service.slug}` },
     title: service.metaTitle ?? service.title,
     description: service.metaDescription ?? service.description,
     keywords: service.metaKeywords ?? undefined,
@@ -73,7 +76,7 @@ export default async function ServiceDetailPage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }}
       />
       <PageHeader
         eyebrow="Service"

@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendMail, notifyEmail, siteUrl, mailConfigured } from "@/lib/mail";
@@ -12,7 +13,9 @@ import { kindOf, KIND_LABEL, statusLabel } from "@/lib/submission";
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return new NextResponse("Not found", { status: 404 });
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+  const given = Buffer.from(request.headers.get("authorization") ?? "");
+  const want = Buffer.from(`Bearer ${secret}`);
+  if (given.length !== want.length || !timingSafeEqual(given, want)) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 

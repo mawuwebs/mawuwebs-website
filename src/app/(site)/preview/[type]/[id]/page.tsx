@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { can } from "@/lib/permissions";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { enablePreview } from "@/lib/content";
@@ -24,6 +25,8 @@ export default async function PreviewPage({ params }: { params: Promise<{ type: 
   const { type, id } = await params;
   const session = await auth();
   if (!session?.user) redirect(`/admin/login?callbackUrl=${encodeURIComponent(`/preview/${type}/${id}`)}`);
+
+  if (!can(session.user.role, "content")) redirect("/admin");
 
   let slug: string | undefined;
   let status = "";

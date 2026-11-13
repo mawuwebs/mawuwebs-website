@@ -30,7 +30,10 @@ const FOOTER_COLUMNS = [
       { href: "/services", label: "All Services" },
       { href: "/support", label: "Get IT Support" },
       { href: "/plans", label: "Managed IT Plans" },
+      { href: "/it-health-check", label: "Free IT Health Check" },
+      { href: "/book-a-call", label: "Book a Free Call" },
       { href: "/start-a-project", label: "Start a Project" },
+      { href: "/portal/login", label: "Client Login" },
     ],
   },
   {

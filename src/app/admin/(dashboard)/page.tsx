@@ -11,6 +11,7 @@ import { KpiCard } from "@/components/admin/kpi-card";
 import { BarList } from "@/components/admin/bar-list";
 import { TrendChart } from "@/components/admin/trend-chart";
 import { auth } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { getDashboardData, getHealthChecks, getOrderSummary, parseRange, RANGES } from "@/lib/admin-stats";
 import { KIND_LABEL, STATUS_OPTIONS, formatMoney, isUrgent, kindOf } from "@/lib/submission";
 import { OrdersAlert } from "@/components/admin/orders-alert";
@@ -98,6 +99,11 @@ export default async function AdminOverviewPage({
     tone: o.value === "WON" ? ("good" as const) : o.value === "LOST" ? ("bad" as const) : ("default" as const),
   }));
   const k = d.kpis;
+  const role = session?.user?.role;
+  const canOrders = can(role, "orders");
+  const canContent = can(role, "content");
+  const canActivity = can(role, "activity");
+  const canNewsletter = can(role, "newsletter");
 
   return (
     <div className="space-y-8">
@@ -127,7 +133,7 @@ export default async function AdminOverviewPage({
         </div>
       </div>
 
-      {orders.total > 0 && <OrdersAlert summary={orders} />}
+      {canOrders && orders.total > 0 && <OrdersAlert summary={orders} />}
 
       {health.length > 0 && (
         <details className="group rounded-2xl border border-accent/30 bg-accent/5 px-5 py-3">
@@ -155,6 +161,8 @@ export default async function AdminOverviewPage({
         </details>
       )}
 
+      {canOrders && (
+        <>
       <section aria-label="Needs attention" className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Attention label="Follow-ups due" value={d.followUps} href="/admin/messages?follow=due" icon={CalendarClock} tone="alert" />
         <Attention label="Unanswered over 48h" value={d.stale} href="/admin/messages?status=NEW" icon={Hourglass} tone="warn" />
@@ -234,7 +242,11 @@ export default async function AdminOverviewPage({
         </Panel>
       </div>
 
+        </>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {canOrders && (
         <Panel
           title="Needs action"
           className="lg:col-span-2"
@@ -291,7 +303,9 @@ export default async function AdminOverviewPage({
             </ul>
           )}
         </Panel>
+        )}
 
+        {canActivity && (
         <Panel
           title="Recent activity"
           action={<History className="size-4 text-muted-foreground" aria-hidden />}
@@ -311,8 +325,10 @@ export default async function AdminOverviewPage({
             Full activity log
           </Link>
         </Panel>
+        )}
       </div>
 
+      {canContent && (
       <section aria-label="Content" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-lg font-semibold">Content</h2>
@@ -336,6 +352,11 @@ export default async function AdminOverviewPage({
           ))}
         </div>
       </section>
+      )}
+
+      {!canOrders && !canContent && !canNewsletter && (
+        <p className="text-muted-foreground">Nothing to show here for your role.</p>
+      )}
     </div>
   );
 }

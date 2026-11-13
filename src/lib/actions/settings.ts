@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireUser } from "@/lib/require-admin";
+import { requireArea } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
 
 const schema = z.object({
@@ -27,6 +27,8 @@ const schema = z.object({
   whatsapp: z.string().trim().max(30).optional(),
   serviceArea: z.string().trim().max(200).optional(),
   supportPromise: z.string().trim().max(200).optional(),
+  googleVerification: z.string().trim().max(200).optional(),
+  bingVerification: z.string().trim().max(200).optional(),
 });
 
 export type SettingsFormState = {
@@ -39,7 +41,7 @@ export async function updateSiteSettings(
   _prev: SettingsFormState,
   formData: FormData
 ): Promise<SettingsFormState> {
-  const user = await requireUser();
+  const user = await requireArea("settings");
 
   const parsed = schema.safeParse({
     siteName: formData.get("siteName"),
@@ -61,6 +63,8 @@ export async function updateSiteSettings(
     bookingUrl: formData.get("bookingUrl"),
     whatsapp: formData.get("whatsapp"),
     serviceArea: formData.get("serviceArea"),
+    googleVerification: formData.get("googleVerification"),
+    bingVerification: formData.get("bingVerification"),
     supportPromise: formData.get("supportPromise"),
   });
 
@@ -89,6 +93,8 @@ export async function updateSiteSettings(
     bookingUrl: parsed.data.bookingUrl || null,
     whatsapp: parsed.data.whatsapp || null,
     serviceArea: parsed.data.serviceArea || null,
+    googleVerification: parsed.data.googleVerification || null,
+    bingVerification: parsed.data.bingVerification || null,
     supportPromise: parsed.data.supportPromise || null,
     trustLogos: JSON.stringify(trustLogos),
   };
@@ -124,7 +130,7 @@ export async function createSocialLink(
   _prev: SocialLinkState,
   formData: FormData
 ): Promise<SocialLinkState> {
-  await requireUser();
+  await requireArea("settings");
   const parsed = socialLinkSchema.safeParse({
     platform: formData.get("platform"),
     url: formData.get("url"),
@@ -139,77 +145,9 @@ export async function createSocialLink(
 }
 
 export async function deleteSocialLink(id: string): Promise<SocialLinkState> {
-  await requireUser();
+  await requireArea("settings");
   await prisma.socialLink.delete({ where: { id } });
   revalidatePath("/admin/settings");
   revalidatePath("/", "layout");
   return { success: true, message: "Social link removed." };
-}
-
-const userSchema = z.object({
-  name: z.string().trim().min(2, "Name is required."),
-  email: z.string().trim().email("Enter a valid email."),
-  role: z.enum(["ADMIN", "EDITOR"]),
-});
-
-export type UserFormState = {
-  success: boolean;
-  message: string;
-  fieldErrors?: Record<string, string>;
-};
-
-export async function createUserAccount(
-  _prev: UserFormState,
-  formData: FormData
-): Promise<UserFormState> {
-  await requireAdmin();
-  const bcrypt = await import("bcryptjs");
-
-  const password = formData.get("password")?.toString() ?? "";
-  const parsed = userSchema.safeParse({
-    name: formData.get("name"),
-    email: formData.get("email"),
-    role: formData.get("role"),
-  });
-
-  if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const key = issue.path[0]?.toString();
-      if (key) fieldErrors[key] = issue.message;
-    }
-    return { success: false, message: "Please fix the errors below.", fieldErrors };
-  }
-  if (password.length < 8) {
-    return {
-      success: false,
-      message: "Please fix the errors below.",
-      fieldErrors: { password: "Password must be at least 8 characters." },
-    };
-  }
-
-  const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  if (existing) {
-    return {
-      success: false,
-      message: "That email is already in use.",
-      fieldErrors: { email: "This email is already registered." },
-    };
-  }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.create({ data: { ...parsed.data, passwordHash } });
-
-  revalidatePath("/admin/users");
-  return { success: true, message: "User created." };
-}
-
-export async function deleteUserAccount(id: string) {
-  const currentUser = await requireAdmin();
-  if (currentUser.id === id) {
-    return { success: false, message: "You can't delete your own account." };
-  }
-  await prisma.user.delete({ where: { id } });
-  revalidatePath("/admin/users");
-  return { success: true, message: "User removed." };
 }

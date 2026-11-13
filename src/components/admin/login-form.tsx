@@ -23,10 +23,10 @@ function SubmitButton({ step2 }: { step2: boolean }) {
   );
 }
 
-export function LoginForm() {
+export function LoginForm({ defaultCallback = "/admin", forgotHref = "/admin/forgot-password", placeholder = "admin@mawuwebs.com" }: { defaultCallback?: string; forgotHref?: string; placeholder?: string } = {}) {
   const [state, formAction] = useActionState(loginAction, initialState);
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/admin";
+  const callbackUrl = searchParams.get("callbackUrl") || defaultCallback;
   const notice = searchParams.get("reset") ? "Password updated. Sign in with your new password." : "";
   // Controlled so the values survive the form reset that follows each action.
   const [email, setEmail] = React.useState("");
@@ -82,7 +82,7 @@ export function LoginForm() {
               autoComplete="email"
               autoFocus
               className="mt-1.5"
-              placeholder="admin@mawuwebs.com"
+              placeholder={placeholder}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -90,7 +90,7 @@ export function LoginForm() {
           <div>
             <div className="flex items-center justify-between">
               <Label className="text-white/90" htmlFor="password-field">Password</Label>
-              <Link href="/admin/forgot-password" className="text-xs text-white/60 underline-offset-2 hover:text-white hover:underline">
+              <Link href={forgotHref} className="text-xs text-white/60 underline-offset-2 hover:text-white hover:underline">
                 Forgot password?
               </Link>
             </div>

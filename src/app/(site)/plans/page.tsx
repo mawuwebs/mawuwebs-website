@@ -33,7 +33,7 @@ function buildMatrix(PLANS: Plan[]) {
 export default async function PlansPage() {
   const [settings, PLANS] = await Promise.all([getSiteSettings(), getPlans()]);
   const { rows, has } = buildMatrix(PLANS);
-  const cols = PLANS.length >= 3 ? "lg:grid-cols-3" : PLANS.length === 2 ? "lg:grid-cols-2 lg:mx-auto lg:max-w-4xl" : "lg:mx-auto lg:max-w-md";
+  const cols = PLANS.length >= 4 ? "md:grid-cols-2 xl:grid-cols-4" : PLANS.length >= 3 ? "lg:grid-cols-3" : PLANS.length === 2 ? "lg:grid-cols-2 lg:mx-auto lg:max-w-4xl" : "lg:mx-auto lg:max-w-md";
   return (
     <>
       <PageHeader

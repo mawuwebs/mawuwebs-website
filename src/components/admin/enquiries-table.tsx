@@ -51,6 +51,11 @@ export function EnquiriesTable({
   const [pending, startTransition] = React.useTransition();
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [openRow, setOpenRow] = React.useState<string | null>(openId ?? null);
+  // Keep showing the last opened enquiry while the dialog animates closed.
+  const [shownId, setShownId] = React.useState<string | null>(openId ?? null);
+  if (openRow && openRow !== shownId) setShownId(openRow);
+  const shownIdx = rows.findIndex((r) => r.id === shownId);
+  const shown = shownIdx >= 0 ? rows[shownIdx] : null;
 
   // Selections for rows that left the page (filter, page change, delete) are ignored.
   const rowIds = new Set(rows.map((r) => r.id));
@@ -146,7 +151,7 @@ export function EnquiriesTable({
                 <TableRow
                   key={s.id}
                   data-state={selected.has(s.id) ? "selected" : undefined}
-                  className={cn("cursor-pointer", s.status === "NEW" && "bg-accent/5")}
+                  className={cn("cursor-pointer hover:bg-secondary/40", s.status === "NEW" && "bg-accent/5")}
                   onClick={() => setOpenRow(s.id)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
@@ -157,22 +162,38 @@ export function EnquiriesTable({
                     />
                   </TableCell>
                   <TableCell>
-                    <p className={cn("flex items-center gap-1.5 font-medium", s.status === "NEW" && "font-semibold")}>
-                      {s.status === "NEW" && (
-                        <span className="size-2 shrink-0 rounded-full bg-accent" aria-label="Unread" />
-                      )}
-                      {s.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{s.email}</p>
-                    <p className="mt-0.5 line-clamp-1 max-w-[18rem] text-xs text-muted-foreground/80">{preview(s.message)}</p>
-                    {isUrgent(s) && open && (
-                      <span className="mt-1 inline-block rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive">
-                        Urgent: work stopped
+                    <div className="flex items-start gap-3">
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "relative mt-0.5 grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold",
+                          s.status === "NEW" ? "bg-accent/15 text-accent" : "bg-secondary text-muted-foreground"
+                        )}
+                      >
+                        {s.name.trim().charAt(0).toUpperCase() || "?"}
+                        {s.status === "NEW" && (
+                          <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full border-2 border-card bg-accent" />
+                        )}
                       </span>
-                    )}
+                      <div className="min-w-0">
+                        <p className={cn("font-medium", s.status === "NEW" && "font-semibold")}>
+                          {s.name}
+                          {s.status === "NEW" && <span className="sr-only"> (unread)</span>}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{s.email}</p>
+                        <p className="mt-0.5 line-clamp-1 max-w-[18rem] text-xs text-muted-foreground/80">{preview(s.message)}</p>
+                        {isUrgent(s) && open && (
+                          <span className="mt-1 inline-block rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive">
+                            Urgent: work stopped
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {KIND_LABEL[kind]}
+                    <span className="inline-block rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-foreground/80">
+                      {KIND_LABEL[kind]}
+                    </span>
                     {kind === "message" && s.subject ? (
                       <span className="block max-w-[14rem] truncate text-xs">{s.subject}</span>
                     ) : null}
@@ -203,15 +224,14 @@ export function EnquiriesTable({
                     <span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-medium", opt?.style)}>
                       {opt?.label ?? s.status}
                     </span>
+                    {s.status === "LOST" && s.lostReason && (
+                      <span className="mt-1 block text-xs text-muted-foreground">{s.lostReason}</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <MessageDetailDialog
-                      submission={s}
-                      canDelete={canDelete}
-                      defaultOpen={s.id === openId}
-                      open={openRow === s.id}
-                      onOpenChange={(v) => setOpenRow(v ? s.id : null)}
-                    />
+                    <Button type="button" variant="outline" size="sm" onClick={() => setOpenRow(s.id)}>
+                      View
+                    </Button>
                   </TableCell>
                 </TableRow>
               );
@@ -219,6 +239,18 @@ export function EnquiriesTable({
           </TableBody>
         </Table>
       </div>
+
+      {shown && (
+        <MessageDetailDialog
+          submission={shown}
+          canDelete={canDelete}
+          open={openRow !== null && openRow === shown.id}
+          onOpenChange={(v) => setOpenRow(v ? shown.id : null)}
+          onPrev={shownIdx > 0 ? () => setOpenRow(rows[shownIdx - 1].id) : undefined}
+          onNext={shownIdx < rows.length - 1 ? () => setOpenRow(rows[shownIdx + 1].id) : undefined}
+          position={`${shownIdx + 1} of ${rows.length}`}
+        />
+      )}
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

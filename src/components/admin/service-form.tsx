@@ -66,6 +66,8 @@ export function ServiceForm({ service }: { service?: ServiceModel }) {
           </div>
 
           <SeoFieldset
+            pathPrefix="/services/"
+            defaultNoIndex={service?.noIndex}
             defaultMetaTitle={service?.metaTitle}
             defaultMetaDescription={service?.metaDescription}
             defaultMetaKeywords={service?.metaKeywords}

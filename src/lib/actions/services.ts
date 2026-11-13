@@ -4,7 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/require-admin";
+import { recordSlugRedirect } from "@/lib/redirects";
+import { requireArea } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
 import { omitSchedule, parseSchedule, saveRevision } from "@/lib/revisions";
 
@@ -23,6 +24,7 @@ const schema = z.object({
   metaTitle: z.string().trim().optional(),
   metaDescription: z.string().trim().optional(),
   metaKeywords: z.string().trim().optional(),
+  noIndex: z.boolean(),
 });
 
 export type ServiceFormState = {
@@ -47,6 +49,7 @@ function parseForm(formData: FormData) {
     metaTitle: formData.get("metaTitle"),
     metaDescription: formData.get("metaDescription"),
     metaKeywords: formData.get("metaKeywords"),
+    noIndex: formData.get("noIndex") === "on",
   });
 }
 
@@ -63,7 +66,7 @@ export async function createService(
   _prev: ServiceFormState,
   formData: FormData
 ): Promise<ServiceFormState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { success: false, message: "Please fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -107,7 +110,7 @@ export async function updateService(
   _prev: ServiceFormState,
   formData: FormData
 ): Promise<ServiceFormState> {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { success: false, message: "Please fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -127,6 +130,8 @@ export async function updateService(
   const schedule = parseSchedule(parsed.data.scheduledAt, parsed.data.status);
   if (schedule.error) return { success: false, message: schedule.error, fieldErrors: { scheduledAt: schedule.error } };
   await saveRevision("service", id, user.name ?? "Admin");
+  if (current && current.slug !== parsed.data.slug)
+    await recordSlugRedirect("/services", current.slug, parsed.data.slug);
   const service = await prisma.service.update({
     where: { id },
     data: {
@@ -154,7 +159,7 @@ export async function updateService(
 }
 
 export async function toggleServiceStatus(id: string) {
-  const user = await requireUser();
+  const user = await requireArea("content");
   const service = await prisma.service.findUniqueOrThrow({ where: { id } });
   if (service.deletedAt) return { success: false, message: "This item is in the trash. Restore it first." };
   const nextStatus = service.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
