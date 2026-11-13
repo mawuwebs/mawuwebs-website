@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, formatMoney, minorToInput } from "@/lib/billing";
 import {
-  createInvoiceFromQuote, deleteDraft, deletePayment, recordPayment, sendInvoice, sendQuote, voidInvoice,
+  createInvoiceFromQuote, deleteDraft, deletePayment, recordPayment, recordRefund, sendInvoice, sendQuote, voidInvoice,
   type BillingResult,
 } from "@/lib/actions/billing";
 
@@ -38,7 +38,7 @@ function Confirm({ label, confirmLabel, onConfirm, disabled }: { label: string; 
   );
 }
 
-export function QuoteActions({ id, status, hasInvoice }: { id: string; status: string; hasInvoice: boolean }) {
+export function QuoteActions({ id, status, depositPct, invoiceKinds }: { id: string; status: string; depositPct: number; invoiceKinds: string[] }) {
   const router = useRouter();
   const { run, pending } = useRun();
   return (
@@ -48,8 +48,14 @@ export function QuoteActions({ id, status, hasInvoice }: { id: string; status: s
           {pending && <Loader2 className="size-4 animate-spin" />} {status === "DRAFT" ? "Email to client" : "Resend email"}
         </Button>
       )}
-      {status === "ACCEPTED" && !hasInvoice && (
-        <Button size="sm" disabled={pending} onClick={() => run(() => createInvoiceFromQuote(id), (r) => router.push(`/admin/billing/invoices/${r.id}`))}>Create invoice</Button>
+      {status === "ACCEPTED" && invoiceKinds.length === 0 && (
+        <>
+          <Button size="sm" disabled={pending} onClick={() => run(() => createInvoiceFromQuote(id, "full"), (r) => router.push(`/admin/billing/invoices/${r.id}`))}>Create invoice</Button>
+          {depositPct > 0 && <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => createInvoiceFromQuote(id, "deposit"), (r) => router.push(`/admin/billing/invoices/${r.id}`))}>Create {depositPct}% deposit invoice</Button>}
+        </>
+      )}
+      {status === "ACCEPTED" && depositPct > 0 && invoiceKinds.includes("deposit") && !invoiceKinds.includes("balance") && (
+        <Button size="sm" disabled={pending} onClick={() => run(() => createInvoiceFromQuote(id, "balance"), (r) => router.push(`/admin/billing/invoices/${r.id}`))}>Create balance invoice</Button>
       )}
       {status === "DRAFT" && (
         <Confirm label="Delete draft" confirmLabel="Confirm: delete" disabled={pending} onConfirm={() => run(() => deleteDraft("quote", id), () => router.push("/admin/billing"))} />
@@ -120,5 +126,30 @@ export function RemovePaymentButton({ id }: { id: string }) {
   const { run, pending } = useRun();
   return (
     <Confirm label="Remove" confirmLabel="Confirm: remove" disabled={pending} onConfirm={() => run(() => deletePayment(id))} />
+  );
+}
+
+export function RefundForm({ invoiceId, currency, maxRefund }: { invoiceId: string; currency: string; maxRefund: number }) {
+  const router = useRouter();
+  const { run, pending } = useRun();
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  return (
+    <form
+      className="grid gap-3 sm:grid-cols-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        run(() => recordRefund(invoiceId, { amount, note }), () => {
+          setAmount("");
+          setNote("");
+          router.refresh();
+        });
+      }}
+    >
+      <div><Label htmlFor="rf-amount">Amount ({currency})</Label><Input id="rf-amount" className="mt-1.5" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required /></div>
+      <div className="sm:col-span-2"><Label htmlFor="rf-note">Note</Label><Input id="rf-note" className="mt-1.5" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Reason, or how it was returned" maxLength={500} /></div>
+      <div className="flex items-end"><Button type="submit" size="sm" variant="outline" disabled={pending}>{pending && <Loader2 className="size-4 animate-spin" />} Record refund</Button></div>
+      <p className="text-xs text-muted-foreground sm:col-span-4">Up to {formatMoney(maxRefund, currency)} received so far. For card or Paystack payments, refund in the gateway dashboard instead; it is recorded here automatically.</p>
+    </form>
   );
 }

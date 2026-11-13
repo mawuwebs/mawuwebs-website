@@ -99,6 +99,7 @@ function isTyping(el: EventTarget | null) {
 export function MessageDetailDialog({
   submission,
   canDelete,
+  canBill,
   open,
   onOpenChange,
   onPrev,
@@ -107,6 +108,7 @@ export function MessageDetailDialog({
 }: {
   submission: ContactSubmissionModel;
   canDelete: boolean;
+  canBill: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 } & NavProps) {
@@ -159,6 +161,7 @@ export function MessageDetailDialog({
             key={submission.id}
             submission={submission}
             canDelete={canDelete}
+            canBill={canBill}
             dirtyRef={dirtyRef}
             onPrev={guardedPrev}
             onNext={guardedNext}
@@ -200,6 +203,7 @@ export function MessageDetailDialog({
 function DetailBody({
   submission,
   canDelete,
+  canBill,
   dirtyRef,
   onPrev,
   onNext,
@@ -207,6 +211,7 @@ function DetailBody({
 }: {
   submission: ContactSubmissionModel;
   canDelete: boolean;
+  canBill: boolean;
   dirtyRef: React.RefObject<boolean>;
 } & NavProps) {
   const [status, setStatus] = React.useState<SubmissionStatusValue>(
@@ -614,7 +619,7 @@ function DetailBody({
           )}
         </section>
 
-        <ClientSection submission={submission} />
+        <ClientSection submission={submission} canBill={canBill} />
 
         <section className="space-y-3">
           <SectionTitle>Activity</SectionTitle>
@@ -801,7 +806,7 @@ function DetailBody({
 }
 
 /** Link an enquiry to a client record, then jump to quoting or the client page. */
-function ClientSection({ submission }: { submission: ContactSubmissionModel }) {
+function ClientSection({ submission, canBill }: { submission: ContactSubmissionModel; canBill: boolean }) {
   const [clientId, setClientId] = React.useState<string | null>(submission.clientId);
   const [seen, setSeen] = React.useState(submission.clientId);
   const [pending, start] = React.useTransition();
@@ -815,7 +820,7 @@ function ClientSection({ submission }: { submission: ContactSubmissionModel }) {
       {clientId ? (
         <div className="flex flex-wrap gap-2">
           <Link href={`/admin/clients/${clientId}`} className={buttonVariants({ variant: "outline", size: "sm" })}>Open client</Link>
-          <Link href={`/admin/billing/quotes/new?enquiry=${submission.id}`} className={buttonVariants({ size: "sm" })}>Create quote</Link>
+          {canBill && <Link href={`/admin/billing/quotes/new?enquiry=${submission.id}`} className={buttonVariants({ size: "sm" })}>Create quote</Link>}
         </div>
       ) : (
         <div className="space-y-2">

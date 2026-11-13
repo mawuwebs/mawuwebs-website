@@ -514,6 +514,8 @@ model Quote {
   notes         String       @default("")
   status        QuoteStatus  @default(DRAFT)
   validUntil    DateTime?
+  /// Percent (0-99) to invoice up front once accepted. 0 = no deposit.
+  depositPct    Int          @default(0)
   /// Unguessable id for the emailed link.
   token         String       @unique
   sentAt        DateTime?
@@ -561,6 +563,10 @@ model Invoice {
   token       String        @unique
   sentAt      DateTime?
   paidAt      DateTime?
+  /// full | deposit | balance (the last two come from a quote with a deposit)
+  kind        String        @default("full")
+  reminderCount  Int        @default(0)
+  lastReminderAt DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -633,4 +639,18 @@ model PaymentSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Business details and defaults for quotes and invoices (single row, id "main").
+model BillingSettings {
+  id                  String   @id @default("main")
+  legalName           String   @default("")
+  taxId               String   @default("")
+  paymentInstructions String   @default("")
+  quoteTerms          String   @default("")
+  defaultCurrency     String   @default("GHS")
+  defaultTaxBp        Int      @default(0)
+  defaultDueDays      Int      @default(14)
+  remindersEnabled    Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
 }

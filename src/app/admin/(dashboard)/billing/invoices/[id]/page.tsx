@@ -5,12 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { guardArea } from "@/lib/guard-area";
 import { getSiteSettings } from "@/lib/settings";
 import { siteUrl } from "@/lib/mail";
-import { PAYMENT_METHOD_LABEL, balanceDue, bpToPercent, formatMoney, minorToInput, totals } from "@/lib/billing";
+import { PAYMENT_METHOD_LABEL, amountPaid, balanceDue, bpToPercent, formatMoney, minorToInput, totals } from "@/lib/billing";
 import { fmtDate } from "@/lib/portal";
 import { editorOptions, invoiceInclude, invoiceToView } from "@/lib/billing-queries";
 import { DocumentEditor } from "@/components/admin/document-editor";
 import { DocumentView } from "@/components/billing/document-view";
-import { InvoiceActions, PaymentForm, RemovePaymentButton } from "@/components/admin/billing-actions";
+import { InvoiceActions, PaymentForm, RefundForm, RemovePaymentButton } from "@/components/admin/billing-actions";
 
 export const metadata: Metadata = { title: "Invoice" };
 export const dynamic = "force-dynamic";
@@ -44,7 +44,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           kind="invoice" id={invoice.id} clients={clients} projects={projects}
           initial={{
             clientId: invoice.userId, projectId: invoice.projectId ?? "", title: invoice.title, currency: invoice.currency, taxPercent: bpToPercent(invoice.taxBp), notes: invoice.notes,
-            date: invoice.dueDate?.toISOString().slice(0, 10) ?? "",
+            date: invoice.dueDate?.toISOString().slice(0, 10) ?? "", depositPercent: "",
             items: invoice.items.map((i) => ({ description: i.description, quantity: String(i.quantity), unit: minorToInput(i.unitAmount) })),
           }}
         />
@@ -56,6 +56,12 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               <h2 className="mb-3 font-semibold">Record a payment</h2>
               <PaymentForm key={balance} invoiceId={invoice.id} currency={invoice.currency} balance={balance} />
             </section>
+          )}
+          {amountPaid(invoice.payments) > 0 && (
+            <details className="rounded-2xl border border-border bg-card p-5">
+              <summary className="cursor-pointer text-sm font-medium">Record a refund</summary>
+              <div className="mt-4"><RefundForm key={invoice.payments.length} invoiceId={invoice.id} currency={invoice.currency} maxRefund={amountPaid(invoice.payments)} /></div>
+            </details>
           )}
           {invoice.payments.length > 0 && (
             <section className="rounded-2xl border border-border bg-card p-5">

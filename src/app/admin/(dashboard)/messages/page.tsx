@@ -5,6 +5,7 @@ import { EnquiriesTable } from "@/components/admin/enquiries-table";
 import { SearchBox } from "@/components/admin/search-box";
 import { Pagination } from "@/components/admin/pagination";
 import { buttonVariants } from "@/components/ui/button";
+import { can } from "@/lib/permissions";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { STATUS_OPTIONS, KIND_LABEL, KIND_VALUES } from "@/lib/submission";
@@ -181,7 +182,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
         </div>
       ) : (
         <>
-          <EnquiriesTable rows={rows} canDelete={session?.user?.role === "ADMIN"} openId={openRow?.id} />
+          <EnquiriesTable rows={rows} canDelete={session?.user?.role === "ADMIN"} canBill={can(session?.user?.role, "billing")} openId={openRow?.id} />
           <Pagination
             basePath="/admin/messages"
             params={{ status, type, q, follow, service, sort }}

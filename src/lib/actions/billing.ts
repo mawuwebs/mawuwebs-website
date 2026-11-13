@@ -12,9 +12,10 @@ import { getSiteSettings } from "@/lib/settings";
 import { rateLimited } from "@/lib/rate-limit";
 import { createCheckoutUrl } from "@/lib/gateway";
 import { deliverInvoice, nextNumber } from "@/lib/invoicing";
+import { getBillingSettings } from "@/lib/billing-settings";
 import { providersForCurrency } from "@/lib/payment-config";
 import {
-  CURRENCIES, PAYMENT_METHODS, isQuoteExpired, formatMoney, milestonesFromText, parseMoney, parseTaxPercent, totals, amountPaid,
+  CURRENCIES, PAYMENT_METHODS, isQuoteExpired, formatMoney, milestonesFromText, parseMoney, parseSignedMoney, parseTaxPercent, depositSplit, subtotal, totals, amountPaid,
 } from "@/lib/billing";
 
 export type BillingResult = { success: boolean; message: string; id?: string };
@@ -57,6 +58,8 @@ export type DocInput = {
   notes: string;
   /** Quote: valid until. Invoice: due date. YYYY-MM-DD or empty. */
   date: string;
+  /** Quotes only: percent invoiced up front (0-99). */
+  depositPercent?: string;
   items: { description: string; quantity: string; unit: string }[];
 };
 
@@ -77,6 +80,7 @@ type CleanDoc = {
   taxBp: number;
   notes: string;
   date: Date | null;
+  depositPct: number;
   items: { description: string; quantity: number; unitAmount: number; position: number }[];
 };
 
@@ -95,8 +99,8 @@ async function cleanDoc(input: DocInput): Promise<CleanDoc | BillingResult> {
     if (!description) return fail(`Line ${i + 1} needs a description.`);
     const quantity = Number(raw.quantity);
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100_000) return fail(`Line ${i + 1}: quantity must be a whole number of 1 or more.`);
-    const unitAmount = parseMoney(raw.unit);
-    if (unitAmount === null) return fail(`Line ${i + 1}: enter a valid price like 1500 or 1500.50.`);
+    const unitAmount = parseSignedMoney(raw.unit);
+    if (unitAmount === null) return fail(`Line ${i + 1}: enter a valid price like 1500 or 1500.50 (use a minus sign for a discount).`);
     items.push({ description, quantity, unitAmount, position: i });
   }
   const client = await prisma.user.findFirst({ where: { id: head.data.clientId, role: "CLIENT" }, select: { id: true } });
@@ -107,7 +111,11 @@ async function cleanDoc(input: DocInput): Promise<CleanDoc | BillingResult> {
     if (!p) return fail("That project does not belong to this client.");
     projectId = p.id;
   }
-  return { clientId: client.id, projectId, title: head.data.title, currency: head.data.currency, taxBp, notes: head.data.notes, date, items };
+  if (totals(items, taxBp).total < 0) return fail("Discounts cannot make the total negative.");
+  const depositRaw = (input.depositPercent ?? "").trim();
+  const depositPct = depositRaw === "" ? 0 : Number(depositRaw);
+  if (!Number.isInteger(depositPct) || depositPct < 0 || depositPct > 99) return fail("Deposit must be a whole percentage from 0 to 99.");
+  return { clientId: client.id, projectId, title: head.data.title, currency: head.data.currency, taxBp, notes: head.data.notes, date, depositPct, items };
 }
 
 const isResult = (v: CleanDoc | BillingResult): v is BillingResult => "success" in v;
@@ -130,7 +138,7 @@ export async function saveQuote(id: string | null, input: DocInput, submissionId
         prisma.quoteItem.deleteMany({ where: { quoteId: id } }),
         prisma.quote.update({
           where: { id },
-          data: { userId: doc.clientId, projectId: doc.projectId, title: doc.title, currency: doc.currency, taxBp: doc.taxBp, notes: doc.notes, validUntil: doc.date, items: { create: doc.items } },
+          data: { userId: doc.clientId, projectId: doc.projectId, title: doc.title, currency: doc.currency, taxBp: doc.taxBp, notes: doc.notes, validUntil: doc.date, depositPct: doc.depositPct, items: { create: doc.items } },
         }),
       ]);
       revalidateBilling(doc.clientId);
@@ -147,7 +155,7 @@ export async function saveQuote(id: string | null, input: DocInput, submissionId
       return tx.quote.create({
         data: {
           number, token: newToken(), userId: doc.clientId, projectId: doc.projectId, submissionId: linkedSubmission,
-          title: doc.title, currency: doc.currency, taxBp: doc.taxBp, notes: doc.notes, validUntil: doc.date, items: { create: doc.items },
+          title: doc.title, currency: doc.currency, taxBp: doc.taxBp, notes: doc.notes, validUntil: doc.date, depositPct: doc.depositPct, items: { create: doc.items },
         },
       });
     });
@@ -229,6 +237,7 @@ export async function answerQuoteByToken(token: string, decision: Decision, name
     const by = name.trim().slice(0, 100);
     if (decision === "ACCEPTED" && by.length < 2) return fail("Type your full name to accept.");
     if (typeof token !== "string" || token.length < 16) return fail("Quote not found.");
+    if (await rateLimited("quote-answer", 10, 60_000)) return fail("Too many attempts. Wait a minute and try again.");
     return respondToQuote({ token }, decision, by || "The client");
   });
 }
@@ -241,24 +250,44 @@ export async function answerQuoteInPortal(id: string, decision: Decision): Promi
   });
 }
 
-export async function createInvoiceFromQuote(quoteId: string): Promise<BillingResult> {
+export async function createInvoiceFromQuote(quoteId: string, kind: "full" | "deposit" | "balance" = "full"): Promise<BillingResult> {
   return guard(async () => {
     const user = await requireArea("billing");
-    const quote = await prisma.quote.findUnique({ where: { id: quoteId }, include: { items: { orderBy: { position: "asc" } }, invoices: { select: { id: true } } } });
+    const quote = await prisma.quote.findUnique({ where: { id: quoteId }, include: { items: { orderBy: { position: "asc" } }, invoices: { select: { id: true, kind: true, status: true } } } });
     if (!quote) return fail("Quote not found.");
     if (quote.status !== "ACCEPTED") return fail("Only an accepted quote can be turned into an invoice.");
-    if (quote.invoices.length) return { success: true, message: "An invoice already exists for this quote.", id: quote.invoices[0].id };
+    const live = quote.invoices.filter((i) => i.status !== "VOID");
+    const has = (k: string) => live.some((i) => i.kind === k);
+    if (kind === "full" && live.length) return { success: true, message: "An invoice already exists for this quote.", id: live[0].id };
+    if (kind !== "full" && quote.depositPct === 0) return fail("This quote has no deposit.");
+    if (kind === "deposit" && live.length) return fail("This quote has already been invoiced.");
+    if (kind === "balance" && !has("deposit")) return fail("Create the deposit invoice first.");
+    if (kind === "balance" && has("balance")) return fail("The balance invoice already exists.");
+
+    const sub = subtotal(quote.items);
+    const split = depositSplit(sub, quote.depositPct);
+    const items =
+      kind === "full"
+        ? quote.items.map((i) => ({ description: i.description, quantity: i.quantity, unitAmount: i.unitAmount, position: i.position }))
+        : kind === "deposit"
+          ? [{ description: `Deposit (${quote.depositPct}%): ${quote.title}`, quantity: 1, unitAmount: split.deposit, position: 0 }]
+          : [{ description: `Balance (${100 - quote.depositPct}%): ${quote.title}`, quantity: 1, unitAmount: split.balance, position: 0 }];
+    if (items.some((i) => i.unitAmount <= 0) && kind !== "full") return fail("The deposit split came out as zero. Adjust the quote.");
+    const bs = await getBillingSettings();
     const invoice = await prisma.$transaction(async (tx) => {
       const number = await nextNumber(tx, "invoice");
       return tx.invoice.create({
         data: {
-          number, token: newToken(), userId: quote.userId, projectId: quote.projectId, quoteId: quote.id, title: quote.title,
-          currency: quote.currency, taxBp: quote.taxBp, notes: quote.notes, dueDate: new Date(Date.now() + 14 * 86400_000),
-          items: { create: quote.items.map((i) => ({ description: i.description, quantity: i.quantity, unitAmount: i.unitAmount, position: i.position })) },
+          number, token: newToken(), userId: quote.userId, projectId: quote.projectId, quoteId: quote.id, kind,
+          title: kind === "full" ? quote.title : `${quote.title} (${kind})`,
+          currency: quote.currency, taxBp: quote.taxBp, notes: kind === "full" ? quote.notes : "",
+          // A deposit is due on acceptance; everything else follows the default payment terms.
+          dueDate: new Date(Date.now() + (kind === "deposit" ? 3 : bs.defaultDueDays) * 86400_000),
+          items: { create: items },
         },
       });
     });
-    await logActivity({ userId: user.id, action: "created", entityType: "Invoice", entityId: invoice.id, message: `${user.name ?? "Staff"} created invoice ${invoice.number} from quote ${quote.number}` });
+    await logActivity({ userId: user.id, action: "created", entityType: "Invoice", entityId: invoice.id, message: `${user.name ?? "Staff"} created ${kind} invoice ${invoice.number} from quote ${quote.number}` });
     revalidateBilling(quote.userId);
     return { success: true, message: "Invoice created as a draft.", id: invoice.id };
   });
@@ -367,17 +396,21 @@ export async function recordPayment(
 export async function deletePayment(paymentId: string): Promise<BillingResult> {
   return guard(async () => {
     const user = await requireArea("billing");
-    const p = await prisma.payment.findUnique({ where: { id: paymentId }, include: { invoice: { select: { id: true, number: true, status: true, userId: true } } } });
+    const p = await prisma.payment.findUnique({ where: { id: paymentId }, select: { id: true, externalId: true, invoiceId: true } });
     if (!p) return fail("Payment not found.");
-    if (p.externalId) return fail("Gateway payments cannot be deleted here. Refund them in the gateway.");
-    await prisma.$transaction([
-      prisma.payment.delete({ where: { id: paymentId } }),
-      // Removing a payment from a paid invoice reopens it.
-      ...(p.invoice.status === "PAID" ? [prisma.invoice.update({ where: { id: p.invoice.id }, data: { status: "SENT" as const, paidAt: null } })] : []),
-    ]);
-    await logActivity({ userId: user.id, action: "deleted", entityType: "Invoice", entityId: p.invoice.id, message: `${user.name ?? "Staff"} removed a payment from ${p.invoice.number}` });
-    revalidateBilling(p.invoice.userId);
-    return { success: true, message: "Payment removed.", id: p.invoice.id };
+    if (p.externalId) return fail("Gateway payments and refunds are kept as a record. To correct one, record a refund or a payment that offsets it.");
+    const inv = await prisma.$transaction(async (tx) => {
+      await tx.payment.delete({ where: { id: paymentId } });
+      const i = await tx.invoice.findUniqueOrThrow({ where: { id: p.invoiceId }, include: { items: true, payments: true } });
+      // Status follows the money: removing a payment reopens a paid invoice, removing a refund can close it again.
+      const covered = amountPaid(i.payments) >= totals(i.items, i.taxBp).total;
+      if (i.status === "PAID" && !covered) await tx.invoice.update({ where: { id: i.id }, data: { status: "SENT", paidAt: null } });
+      if (i.status === "SENT" && covered) await tx.invoice.update({ where: { id: i.id }, data: { status: "PAID", paidAt: new Date() } });
+      return i;
+    });
+    await logActivity({ userId: user.id, action: "deleted", entityType: "Invoice", entityId: inv.id, message: `${user.name ?? "Staff"} removed a payment entry from ${inv.number}` });
+    revalidateBilling(inv.userId);
+    return { success: true, message: "Entry removed.", id: inv.id };
   });
 }
 
@@ -543,5 +576,63 @@ export async function deleteRecurring(id: string, clientId: string): Promise<Bil
     await prisma.recurringInvoice.deleteMany({ where: { id, userId: clientId } });
     revalidateBilling(clientId);
     return { success: true, message: "Removed. Invoices already created are untouched." };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Refunds and billing settings
+// ---------------------------------------------------------------------------
+
+/**
+ * Record money handed back to the client (bank transfer, MoMo, or a gateway refund you issued in its dashboard).
+ * Stored as a negative payment so the balance and the Paid status recompute from one source.
+ */
+export async function recordRefund(invoiceId: string, input: { amount: string; note: string }): Promise<BillingResult> {
+  return guard(async () => {
+    const user = await requireArea("billing");
+    const amount = parseMoney(input.amount);
+    if (amount === null || amount === 0) return fail("Enter the refund amount like 200 or 200.50.");
+    const note = input.note.trim().slice(0, 500);
+    const res = await prisma.$transaction(async (tx) => {
+      const inv = await tx.invoice.findUnique({ where: { id: invoiceId }, include: { items: true, payments: true } });
+      if (!inv) return fail("Invoice not found.");
+      if (inv.status !== "SENT" && inv.status !== "PAID") return fail("Only a sent or paid invoice can be refunded.");
+      const paid = amountPaid(inv.payments);
+      if (amount > paid) return fail(`You can refund at most ${formatMoney(paid, inv.currency)}, the amount received so far.`);
+      await tx.payment.create({ data: { invoiceId, amount: -amount, method: "refund", note, reference: "" } });
+      const stillPaid = paid - amount >= totals(inv.items, inv.taxBp).total;
+      if (inv.status === "PAID" && !stillPaid) await tx.invoice.update({ where: { id: invoiceId }, data: { status: "SENT", paidAt: null } });
+      return { success: true, message: "Refund recorded.", id: invoiceId, _cur: inv.currency, _num: inv.number, _uid: inv.userId };
+    });
+    if (!res.success) return res;
+    const { _cur, _num, _uid } = res as BillingResult & { _cur: string; _num: string; _uid: string };
+    await logActivity({ userId: user.id, action: "updated", entityType: "Invoice", entityId: invoiceId, message: `${user.name ?? "Staff"} recorded a ${formatMoney(amount, _cur)} refund on ${_num}` });
+    revalidateBilling(_uid);
+    return { success: true, message: "Refund recorded.", id: invoiceId };
+  });
+}
+
+const settingsSchema = z.object({
+  legalName: z.string().trim().max(160).default(""),
+  taxId: z.string().trim().max(60).default(""),
+  paymentInstructions: z.string().trim().max(2000).default(""),
+  quoteTerms: z.string().trim().max(4000).default(""),
+  defaultCurrency: z.enum(CURRENCIES),
+  defaultDueDays: z.coerce.number().int().min(0).max(120),
+  remindersEnabled: z.boolean(),
+});
+
+export async function saveBillingSettings(input: z.input<typeof settingsSchema> & { defaultTaxPercent: string }): Promise<BillingResult> {
+  return guard(async () => {
+    const user = await requireArea("billing");
+    const parsed = settingsSchema.safeParse(input);
+    if (!parsed.success) return fail(parsed.error.issues[0].message);
+    const defaultTaxBp = parseTaxPercent(input.defaultTaxPercent);
+    if (defaultTaxBp === null) return fail("Tax must be a percentage between 0 and 100.");
+    const data = { ...parsed.data, defaultTaxBp };
+    await prisma.billingSettings.upsert({ where: { id: "main" }, create: { id: "main", ...data }, update: data });
+    await logActivity({ userId: user.id, action: "updated", entityType: "BillingSettings", entityId: "main", message: `${user.name ?? "Staff"} updated billing settings` });
+    revalidatePath("/admin/billing", "layout");
+    return { success: true, message: "Saved." };
   });
 }

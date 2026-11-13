@@ -19,6 +19,7 @@ export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   paystack: "Paystack",
   stripe: "Stripe",
   other: "Other",
+  refund: "Refund",
 };
 
 export type LineItem = { description: string; quantity: number; unitAmount: number };
@@ -121,3 +122,44 @@ export const milestonesToText = (ms: Milestone[]) => ms.map((m) => `${m.done ? "
 /** A sent quote is valid through the end of its "valid until" day. */
 export const isQuoteExpired = (validUntil: Date | null, now = new Date()) =>
   !!validUntil && validUntil.getTime() + 86400_000 < now.getTime();
+
+/** Like parseMoney but allows one leading minus, for discount lines. Zero and out-of-range values are rejected. */
+export function parseSignedMoney(input: string): number | null {
+  const t = input.trim();
+  if (t.startsWith("-")) {
+    const m = parseMoney(t.slice(1));
+    return m === null || m === 0 ? null : -m;
+  }
+  return parseMoney(t);
+}
+
+/**
+ * Split a quote into deposit and balance by percentage of the pre-tax subtotal. Tax is applied to each
+ * invoice at the quote's rate, so the two invoices add up to the quote total (give or take one minor unit
+ * of rounding per invoice).
+ */
+export function depositSplit(subtotalMinor: number, pct: number) {
+  const deposit = Math.round((subtotalMinor * pct) / 100);
+  return { deposit, balance: subtotalMinor - deposit };
+}
+
+/** 1 = first reminder (3+ days late), 2 = final reminder (14+ days late), null = nothing due now. */
+export function reminderStage(
+  inv: { status: string; dueDate: Date | null; reminderCount: number },
+  balance: number,
+  now = new Date()
+): 1 | 2 | null {
+  if (inv.status !== "SENT" || balance <= 0 || !inv.dueDate) return null;
+  const daysLate = Math.floor((now.getTime() - inv.dueDate.getTime()) / 86400_000);
+  if (inv.reminderCount === 0 && daysLate >= 3) return 1;
+  if (inv.reminderCount === 1 && daysLate >= 14) return 2;
+  return null;
+}
+
+/** CSV cell: quoted, with spreadsheet formula injection neutralised. Numbers pass through unquoted. */
+export function csvCell(value: string | number | null | undefined) {
+  if (typeof value === "number") return String(value);
+  let v = value == null ? "" : String(value);
+  if (/^[=+\-@\t\r]/.test(v)) v = `'${v}`;
+  return `"${v.replace(/"/g, '""')}"`;
+}

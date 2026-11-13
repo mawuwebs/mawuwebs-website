@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { applyGatewayPayment } from "@/lib/gateway";
+import { applyGatewayPayment, applyGatewayRefund } from "@/lib/gateway";
 import { getGatewayConfig } from "@/lib/payment-config";
 import { verifyPaystackSignature } from "@/lib/payments-verify";
 
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   const raw = await request.text();
   if (!verifyPaystackSignature(raw, request.headers.get("x-paystack-signature"), secret)) return new NextResponse("Bad signature", { status: 401 });
 
-  let evt: { event?: string; data?: { status?: string; reference?: string; amount?: number; currency?: string; id?: number; metadata?: { invoiceId?: string } } };
+  let evt: { event?: string; data?: { status?: string; reference?: string; transaction_reference?: string; refund_reference?: string; amount?: number; currency?: string; id?: number; metadata?: { invoiceId?: string } } };
   try {
     evt = JSON.parse(raw);
   } catch {
@@ -20,6 +20,13 @@ export async function POST(request: NextRequest) {
   if (evt.event === "charge.success" && d?.status === "success" && d.metadata?.invoiceId && typeof d.amount === "number" && d.currency && d.reference) {
     // A thrown error returns 500 so Paystack retries; recording is idempotent so retries are safe.
     await applyGatewayPayment({ invoiceId: d.metadata.invoiceId, amount: d.amount, currency: d.currency, provider: "paystack", externalId: `paystack:${d.reference}`, reference: d.reference });
+  }
+  // Refund finished. Paystack refund payloads carry the original transaction reference.
+  if (evt.event === "refund.processed" && d?.transaction_reference && typeof d.amount === "number" && d.currency) {
+    await applyGatewayRefund({
+      provider: "paystack", original: { externalId: `paystack:${d.transaction_reference}` }, amount: d.amount, currency: d.currency,
+      externalId: `refund:paystack:${d.refund_reference ?? `${d.transaction_reference}:${d.amount}`}`, reference: d.refund_reference ?? d.transaction_reference,
+    });
   }
   return NextResponse.json({ received: true });
 }

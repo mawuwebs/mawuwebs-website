@@ -8,14 +8,14 @@ const clientSel = { select: { name: true, company: true, email: true } };
 
 export function quoteToView(q: {
   number: string; title: string; currency: string; taxBp: number; notes: string; status: keyof typeof QUOTE_STATUS_LABEL;
-  validUntil: Date | null; createdAt: Date; sentAt: Date | null;
+  validUntil: Date | null; createdAt: Date; sentAt: Date | null; depositPct: number;
   items: { description: string; quantity: number; unitAmount: number }[];
   user: { name: string; company: string; email: string };
 }): DocViewData {
   const expired = q.status === "SENT" && isQuoteExpired(q.validUntil);
   return {
     kind: "quote", number: q.number, title: q.title, currency: q.currency, taxBp: q.taxBp, notes: q.notes, items: q.items,
-    issuedAt: q.sentAt ?? q.createdAt, date: q.validUntil, statusLabel: expired ? "Expired" : QUOTE_STATUS_LABEL[q.status], client: q.user,
+    issuedAt: q.sentAt ?? q.createdAt, date: q.validUntil, statusLabel: expired ? "Expired" : QUOTE_STATUS_LABEL[q.status], client: q.user, depositPct: q.depositPct,
   };
 }
 

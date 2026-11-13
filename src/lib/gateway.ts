@@ -70,7 +70,7 @@ export type ApplyOutcome = "recorded" | "duplicate" | "ignored";
  */
 export async function applyGatewayPayment(p: { invoiceId: string; amount: number; currency: string; provider: Provider; externalId: string; reference: string }): Promise<ApplyOutcome> {
   if (!Number.isSafeInteger(p.amount) || p.amount <= 0) return "ignored";
-  type Done = { number: string; currency: string; userId: string; user: { name: string; email: string }; settled: boolean };
+  type Done = { number: string; currency: string; userId: string; user: { name: string; email: string }; settled: boolean; overpaid: number };
   let done: Done | null;
   try {
     done = await prisma.$transaction(async (tx): Promise<Done | null> => {
@@ -78,9 +78,11 @@ export async function applyGatewayPayment(p: { invoiceId: string; amount: number
       const inv = await tx.invoice.findUnique({ where: { id: p.invoiceId }, include: { items: true, payments: true, user: { select: { name: true, email: true } } } });
       if (!inv || inv.currency.toUpperCase() !== p.currency.toUpperCase()) throw new Error("ignored");
       await tx.payment.create({ data: { invoiceId: inv.id, amount: p.amount, method: p.provider, reference: p.reference, externalId: p.externalId } });
-      const settled = amountPaid(inv.payments) + p.amount >= totals(inv.items, inv.taxBp).total;
+      const total = totals(inv.items, inv.taxBp).total;
+      const settled = amountPaid(inv.payments) + p.amount >= total;
+      const overpaid = Math.max(0, amountPaid(inv.payments) + p.amount - total);
       if (settled && inv.status === "SENT") await tx.invoice.update({ where: { id: inv.id }, data: { status: "PAID", paidAt: new Date() } });
-      return { number: inv.number, currency: inv.currency, userId: inv.userId, user: inv.user, settled };
+      return { number: inv.number, currency: inv.currency, userId: inv.userId, user: inv.user, settled, overpaid };
     });
   } catch (err) {
     // P2002 = lost a race on the unique externalId: another delivery of the same event won.
@@ -97,8 +99,57 @@ export async function applyGatewayPayment(p: { invoiceId: string; amount: number
       to: done.user.email, replyTo: notifyEmail(settings.contactEmail), subject: `Payment received for invoice ${done.number}`,
       text: `Hi ${done.user.name.split(" ")[0]},\n\nThank you. We received ${formatMoney(p.amount, done.currency)} for invoice ${done.number}${done.settled ? ", which is now paid in full" : ""}.\n\n${settings.siteName}`,
     }),
-    sendMail({ to: notifyEmail(settings.contactEmail), subject: `Online payment: ${done.number}`, text: `${done.user.name} paid ${formatMoney(p.amount, done.currency)} by ${p.provider} on ${done.number}.\n\n${siteUrl()}/admin/billing` }),
+    sendMail({ to: notifyEmail(settings.contactEmail), subject: `${done.overpaid ? "OVERPAID " : ""}Online payment: ${done.number}`, text: `${done.user.name} paid ${formatMoney(p.amount, done.currency)} by ${p.provider} on ${done.number}.${done.overpaid ? `\n\nThis is ${formatMoney(done.overpaid, done.currency)} more than the balance (a manual payment was probably recorded while they were checking out). Refund the difference in the ${p.provider} dashboard, then record the refund on the invoice.` : ""}\n\n${siteUrl()}/admin/billing` }),
   ]);
+  revalidatePath("/admin/billing");
+  revalidatePath(`/admin/clients/${done.userId}`);
+  revalidatePath("/portal/billing");
+  return "recorded";
+}
+
+/** Money returned to the payer through the gateway. Recorded as a negative payment; a paid invoice reopens if it is no longer covered. */
+export async function applyGatewayRefund(p: {
+  provider: Provider;
+  /** How to find the payment being refunded. */
+  original: { externalId: string } | { reference: string };
+  /** Full refunded total so far (Stripe sends cumulative) or this refund's amount (Paystack), via `cumulativeOf`. */
+  amount: number;
+  /** Prefix of earlier refund rows for the same charge, so a cumulative amount can be turned into a delta. */
+  cumulativeOf?: string;
+  currency: string;
+  externalId: string;
+  reference: string;
+}): Promise<ApplyOutcome> {
+  if (!Number.isSafeInteger(p.amount) || p.amount <= 0) return "ignored";
+  type Done = { number: string; currency: string; userId: string; delta: number; reopened: boolean; user: { name: string } };
+  let done: Done | null;
+  try {
+    done = await prisma.$transaction(async (tx): Promise<Done | null> => {
+      if (await tx.payment.findUnique({ where: { externalId: p.externalId }, select: { id: true } })) return null;
+      const orig = await tx.payment.findFirst({
+        where: "externalId" in p.original ? { externalId: p.original.externalId } : { method: p.provider, reference: p.original.reference, amount: { gt: 0 } },
+        select: { invoiceId: true },
+      });
+      if (!orig) throw new Error("ignored");
+      const inv = await tx.invoice.findUnique({ where: { id: orig.invoiceId }, include: { items: true, payments: true, user: { select: { name: true } } } });
+      if (!inv || inv.currency.toUpperCase() !== p.currency.toUpperCase()) throw new Error("ignored");
+      const already = p.cumulativeOf ? inv.payments.filter((x) => x.externalId?.startsWith(p.cumulativeOf!)).reduce((n, x) => n + Math.abs(x.amount), 0) : 0;
+      const delta = p.amount - already;
+      if (delta <= 0) return null;
+      await tx.payment.create({ data: { invoiceId: inv.id, amount: -delta, method: "refund", reference: p.reference, note: `${p.provider} refund`, externalId: p.externalId } });
+      const reopened = inv.status === "PAID" && amountPaid(inv.payments) - delta < totals(inv.items, inv.taxBp).total;
+      if (reopened) await tx.invoice.update({ where: { id: inv.id }, data: { status: "SENT", paidAt: null } });
+      return { number: inv.number, currency: inv.currency, userId: inv.userId, delta, reopened, user: inv.user };
+    });
+  } catch (err) {
+    if ((err as { code?: string }).code === "P2002") return "duplicate";
+    if (err instanceof Error && err.message === "ignored") return "ignored";
+    throw err;
+  }
+  if (!done) return "duplicate";
+  await logActivity({ userId: null, action: "updated", entityType: "Invoice", entityId: done.number, message: `${p.provider} refund of ${formatMoney(done.delta, done.currency)} on ${done.number}${done.reopened ? " (invoice reopened)" : ""}` });
+  const settings = await getSiteSettings();
+  await sendMail({ to: notifyEmail(settings.contactEmail), subject: `Refund: ${done.number}`, text: `${p.provider} refunded ${formatMoney(done.delta, done.currency)} to ${done.user.name} on ${done.number}.${done.reopened ? " The invoice is open again." : ""}\n\n${siteUrl()}/admin/billing` });
   revalidatePath("/admin/billing");
   revalidatePath(`/admin/clients/${done.userId}`);
   revalidatePath("/portal/billing");

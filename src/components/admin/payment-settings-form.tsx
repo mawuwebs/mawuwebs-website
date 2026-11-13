@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy, Loader2 } from "lucide-react";
+import { Check, CircleDashed, Copy, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,34 @@ function KeyRow({ s }: { s: FieldStatus }) {
   );
 }
 
+function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span aria-hidden="true" className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">{n}</span>
+      <div className="min-w-0 flex-1 space-y-2">
+        <p className="text-sm font-medium">{title}</p>
+        {children}
+      </div>
+    </li>
+  );
+}
+
+function Status({ name, ready, mode, hookReady }: { name: string; ready: boolean; mode: "test" | "live" | null; hookReady?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
+      <span className={`flex size-9 items-center justify-center rounded-full ${ready ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>
+        {ready ? <ShieldCheck className="size-5" /> : <CircleDashed className="size-5" />}
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{name}</p>
+        <p className="text-xs text-muted-foreground">
+          {ready ? `Connected${mode ? ` · ${mode} mode` : ""}${hookReady === false ? " · webhook secret missing" : ""}` : "Not connected"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function PaymentSettingsForm({
   paystack, stripe, stripeWebhook, paystackHook, stripeHook, paystackReady, stripeReady,
 }: {
@@ -73,26 +101,42 @@ export function PaymentSettingsForm({
   const [pending, start] = useTransition();
   const test = (p: "paystack" | "stripe") => start(async () => { const r = await testGateway(p); (r.success ? toast.success : toast.error)(r.message); });
   return (
-    <div className="space-y-8">
-      <section className="space-y-5 rounded-2xl border border-border bg-card p-6">
+    <div className="space-y-6">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Status name="Paystack" ready={paystackReady} mode={paystack.mode} />
+        <Status name="Stripe" ready={stripeReady} mode={stripe.mode} hookReady={stripeReady ? stripeWebhook.source !== null : undefined} />
+      </div>
+
+      <section className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div>
           <h2 className="font-display text-lg font-semibold">Paystack</h2>
-          <p className="text-sm text-muted-foreground">Cards and mobile money in GHS, NGN and USD. Dashboard, Settings, API Keys &amp; Webhooks.</p>
+          <p className="text-sm text-muted-foreground">Cards and mobile money in GHS, NGN and USD.</p>
         </div>
-        <KeyRow s={paystack} />
-        <CopyField label="Webhook URL (paste into Paystack)" value={paystackHook} />
-        <Button type="button" size="sm" variant="outline" disabled={pending || !paystackReady} onClick={() => test("paystack")}>{pending && <Loader2 className="size-4 animate-spin" />} Test connection</Button>
+        <ol className="space-y-5">
+          <Step n={1} title="Add your secret key"><p className="text-xs text-muted-foreground">Paystack dashboard, Settings, API Keys &amp; Webhooks.</p><KeyRow s={paystack} /></Step>
+          <Step n={2} title="Add the webhook"><CopyField label="Webhook URL (paste into Paystack)" value={paystackHook} /></Step>
+          <Step n={3} title="Check it works">
+            <Button type="button" size="sm" variant="outline" disabled={pending || !paystackReady} onClick={() => test("paystack")}>{pending && <Loader2 className="size-4 animate-spin" />} Test connection</Button>
+          </Step>
+        </ol>
       </section>
 
-      <section className="space-y-5 rounded-2xl border border-border bg-card p-6">
+      <section className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div>
           <h2 className="font-display text-lg font-semibold">Stripe</h2>
-          <p className="text-sm text-muted-foreground">Cards in USD, EUR and GBP. Add an endpoint for the event <code>checkout.session.completed</code>.</p>
+          <p className="text-sm text-muted-foreground">Cards in USD, EUR and GBP.</p>
         </div>
-        <KeyRow s={stripe} />
-        <CopyField label="Webhook URL (paste into Stripe)" value={stripeHook} />
-        <KeyRow s={stripeWebhook} />
-        <Button type="button" size="sm" variant="outline" disabled={pending || !stripeReady} onClick={() => test("stripe")}>{pending && <Loader2 className="size-4 animate-spin" />} Test connection</Button>
+        <ol className="space-y-5">
+          <Step n={1} title="Add your secret key"><KeyRow s={stripe} /></Step>
+          <Step n={2} title="Add the webhook endpoint">
+            <p className="text-xs text-muted-foreground">Listen for the event <code>checkout.session.completed</code>.</p>
+            <CopyField label="Webhook URL (paste into Stripe)" value={stripeHook} />
+          </Step>
+          <Step n={3} title="Add the webhook signing secret"><KeyRow s={stripeWebhook} /></Step>
+          <Step n={4} title="Check it works">
+            <Button type="button" size="sm" variant="outline" disabled={pending || !stripeReady} onClick={() => test("stripe")}>{pending && <Loader2 className="size-4 animate-spin" />} Test connection</Button>
+          </Step>
+        </ol>
       </section>
     </div>
   );

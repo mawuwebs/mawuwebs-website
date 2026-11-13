@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function QuotePage({ params }: { params: Promise<{ id: string }> }) {
   await guardArea("billing");
   const { id } = await params;
-  const quote = await prisma.quote.findUnique({ where: { id }, include: { ...quoteInclude, invoices: { select: { id: true, number: true } } } });
+  const quote = await prisma.quote.findUnique({ where: { id }, include: { ...quoteInclude, invoices: { select: { id: true, number: true, kind: true, status: true } } } });
   if (!quote) notFound();
   const settings = await getSiteSettings();
   const isDraft = quote.status === "DRAFT";
@@ -29,7 +29,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         <h1 className="mt-2 font-display text-2xl font-bold">Quote {quote.number}</h1>
         <p className="text-sm text-muted-foreground">{quote.user.company || quote.user.name} · <Link href={`/admin/clients/${quote.userId}`} className="underline underline-offset-2">client page</Link></p>
       </div>
-      <QuoteActions id={quote.id} status={quote.status} hasInvoice={quote.invoices.length > 0} />
+      <QuoteActions id={quote.id} status={quote.status} depositPct={quote.depositPct} invoiceKinds={quote.invoices.filter((i) => i.status !== "VOID").map((i) => i.kind)} />
       {quote.invoices.map((i) => (
         <p key={i.id} className="text-sm">Invoice: <Link className="underline underline-offset-2" href={`/admin/billing/invoices/${i.id}`}>{i.number}</Link></p>
       ))}
@@ -41,7 +41,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
           kind="quote" id={quote.id} clients={clients} projects={projects}
           initial={{
             clientId: quote.userId, projectId: quote.projectId ?? "", title: quote.title, currency: quote.currency, taxPercent: bpToPercent(quote.taxBp), notes: quote.notes,
-            date: quote.validUntil?.toISOString().slice(0, 10) ?? "",
+            date: quote.validUntil?.toISOString().slice(0, 10) ?? "", depositPercent: quote.depositPct ? String(quote.depositPct) : "",
             items: quote.items.map((i) => ({ description: i.description, quantity: String(i.quantity), unit: minorToInput(i.unitAmount) })),
           }}
         />

@@ -41,10 +41,12 @@ const BULK_STATUSES = STATUS_OPTIONS.filter((o) => o.value !== "NEW");
 export function EnquiriesTable({
   rows,
   canDelete,
+  canBill,
   openId,
 }: {
   rows: ContactSubmissionModel[];
   canDelete: boolean;
+  canBill: boolean;
   openId?: string;
 }) {
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
@@ -244,6 +246,7 @@ export function EnquiriesTable({
         <MessageDetailDialog
           submission={shown}
           canDelete={canDelete}
+          canBill={canBill}
           open={openRow !== null && openRow === shown.id}
           onOpenChange={(v) => setOpenRow(v ? shown.id : null)}
           onPrev={shownIdx > 0 ? () => setOpenRow(rows[shownIdx - 1].id) : undefined}

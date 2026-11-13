@@ -26,7 +26,7 @@ Call once a day, early morning. It is safe to call more often.
 curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://YOUR-DOMAIN/api/cron/recurring-invoices
 ```
 
-Also schedule `/api/cron/digest` (weekly) and `/api/cron/monthly-report` (monthly) if you use them. Use the host's cron screen, a server crontab, or an external scheduler such as cron-job.org. Check the JSON reply the first time: `{"due":1,"created":1,"sent":0}`.
+Also call `/api/cron/invoice-reminders` daily (overdue reminders at 3 and 14 days; switch off in Billing settings), and schedule `/api/cron/digest` (weekly) and `/api/cron/monthly-report` (monthly) if you use them. For emailed billing summaries of the previous period, schedule `/api/cron/billing-report?period=daily` (every morning), `?period=weekly` (Monday) and/or `?period=monthly` (1st); add `&dry=1` to preview the JSON without emailing. Use the host's cron screen, a server crontab, or an external scheduler such as cron-job.org. Check the JSON reply the first time: `{"due":1,"created":1,"sent":0}`.
 
 ## 3. Backups
 
@@ -38,9 +38,9 @@ Writes a consistent, integrity-checked copy to `./backups` (override with `BACKU
 
 ## 4. Gateway test mode
 
-Everything is configured in the admin: sign in as an admin, open **Payments**. Keys are encrypted before storage and never shown again. If you change `AUTH_SECRET` later, saved keys become unreadable and must be re-entered.
+Everything is configured in the admin: sign in as an admin, open **Payments**. Business name, tax ID, payment instructions and defaults live under **Billing, Settings**. Keys are encrypted before storage and never shown again. If you change `AUTH_SECRET` later, saved keys become unreadable and must be re-entered.
 
-Create accounts, stay in test mode, and only switch to live keys after step e.
+Create accounts, stay in test mode, and only switch to live keys after step f.
 
 a. **Paystack**: dashboard, Settings, API Keys & Webhooks. Paste the *test* secret key into Payments, press Save, then Test connection. Copy the webhook URL shown on the page into the Paystack test webhook setting.
 
@@ -50,6 +50,8 @@ c. **Local testing before deploy**: expose your machine with a tunnel (cloudflar
 
 d. **Run the flow**: add a client, create an invoice in GHS (Paystack) or USD (either), email it, open the link, pay with a gateway test card or mobile money test number. Confirm: the invoice turns Paid, one payment row appears, the client gets a receipt email. Resend the webhook from the gateway dashboard and confirm no second payment appears.
 
-e. **Go live**: replace the keys with live ones in Payments, update the Stripe signing secret, make one small real payment, refund it from the gateway dashboard, and remove the payment row in the admin.
+e. **Refunds**: refund the test payment from the gateway dashboard. Within a minute a negative "Refund" row should appear on the invoice and it should reopen. This is the one thing to verify in test mode: Paystack's refund webhook is handled from its documented fields (`transaction_reference`, `amount`), so confirm the amount and row are right. If a refund does not appear, record it by hand with "Record a refund" on the invoice.
+
+f. **Go live**: replace the keys with live ones in Payments, update the Stripe signing secret, make one small real payment, refund it from the gateway dashboard, and check the refund row appears.
 
 Paystack covers GHS, NGN and USD. Stripe covers USD, EUR and GBP. Stripe does not process GHS.

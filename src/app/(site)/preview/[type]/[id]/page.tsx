@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { can } from "@/lib/permissions";
 import { auth } from "@/lib/auth";
@@ -81,9 +82,9 @@ export default async function PreviewPage({ params }: { params: Promise<{ type: 
       >
         <strong>Preview</strong>
         <span>This item is {status.toLowerCase()}. Only signed-in admins can see this page.</span>
-        <a href="/admin" className="underline underline-offset-2">
+        <Link href="/admin" className="underline underline-offset-2">
           Back to admin
-        </a>
+        </Link>
       </div>
       {body}
     </>

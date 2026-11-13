@@ -117,3 +117,50 @@ test("key patterns accept real-looking keys and reject mix-ups", () => {
   assert.equal(keyMode("sk_live_x"), "live");
   assert.equal(keyMode(null), null);
 });
+
+import { csvCell, depositSplit, parseSignedMoney, reminderStage, subtotal } from "../src/lib/billing";
+
+test("parseSignedMoney: discounts allowed, zero and junk rejected", () => {
+  assert.equal(parseSignedMoney("-50"), -5000);
+  assert.equal(parseSignedMoney("-12.5"), -1250);
+  assert.equal(parseSignedMoney("50"), 5000);
+  for (const bad of ["-0", "-", "--5", "5-", "abc", ""]) assert.equal(parseSignedMoney(bad), null, bad);
+});
+
+test("a discount line reduces the total and tax applies to the net", () => {
+  const t = totals([{ description: "Build", quantity: 1, unitAmount: 100000 }, { description: "Discount", quantity: 1, unitAmount: -20000 }], 1000);
+  assert.equal(t.subtotal, 80000);
+  assert.equal(t.tax, 8000);
+  assert.equal(t.total, 88000);
+});
+
+test("depositSplit: parts add up to the subtotal exactly", () => {
+  for (const [sub, pct] of [[100000, 50], [99999, 30], [1, 50], [333333, 99]] as const) {
+    const s = depositSplit(sub, pct);
+    assert.equal(s.deposit + s.balance, sub);
+  }
+  assert.deepEqual(depositSplit(100000, 40), { deposit: 40000, balance: 60000 });
+  assert.equal(subtotal([{ description: "x", quantity: 2, unitAmount: 500 }]), 1000);
+});
+
+test("reminderStage: 3 days then 14 days, never when paid, not sent or not late enough", () => {
+  const now = new Date("2026-12-31T12:00:00Z");
+  const due = (daysAgo: number) => new Date(now.getTime() - daysAgo * 86400_000);
+  const inv = (status: string, daysAgo: number, reminderCount: number) => ({ status, dueDate: due(daysAgo), reminderCount });
+  assert.equal(reminderStage(inv("SENT", 2, 0), 100, now), null);
+  assert.equal(reminderStage(inv("SENT", 3, 0), 100, now), 1);
+  assert.equal(reminderStage(inv("SENT", 10, 1), 100, now), null);
+  assert.equal(reminderStage(inv("SENT", 14, 1), 100, now), 2);
+  assert.equal(reminderStage(inv("SENT", 30, 2), 100, now), null);
+  assert.equal(reminderStage(inv("SENT", 30, 0), 0, now), null);
+  assert.equal(reminderStage(inv("PAID", 30, 0), 100, now), null);
+  assert.equal(reminderStage({ status: "SENT", dueDate: null, reminderCount: 0 }, 100, now), null);
+});
+
+test("csvCell: quotes, escapes and neutralises formulas; numbers stay numeric", () => {
+  assert.equal(csvCell('He said "hi", ok'), '"He said ""hi"", ok"');
+  assert.equal(csvCell("=HYPERLINK(1)"), `"'=HYPERLINK(1)"`);
+  assert.equal(csvCell("-cmd"), `"'-cmd"`);
+  assert.equal(csvCell(-12.5), "-12.5");
+  assert.equal(csvCell(null), '""');
+});
