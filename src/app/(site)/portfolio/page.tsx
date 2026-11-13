@@ -34,6 +34,10 @@ export default async function PortfolioPage({
     getProjectCategories(),
   ]);
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  // On the unfiltered first page, show our own products separately from client work.
+  const splitProducts = !category && page === 1;
+  const products = splitProducts ? projects.filter((p) => p.category?.slug === "software-product") : [];
+  const clientWork = splitProducts ? projects.filter((p) => p.category?.slug !== "software-product") : projects;
 
   return (
     <>
@@ -44,7 +48,22 @@ export default async function PortfolioPage({
         illustration={<Illustration variant="dashboard" className="h-full w-full" />}
       />
 
+      {products.length > 0 && (
+        <Section>
+          <h2 className="font-display text-2xl font-bold">Our products</h2>
+          <p className="mt-2 text-muted-foreground">Software we have designed, built and run ourselves.</p>
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {products.map((project, i) => (
+              <Reveal key={project.id} delay={i * 80}>
+                <ProjectCard project={project} headingLevel={3} />
+              </Reveal>
+            ))}
+          </div>
+        </Section>
+      )}
+
       <Section>
+        {products.length > 0 && <h2 className="mb-6 font-display text-2xl font-bold">Client work</h2>}
         <FilterChips
           label="Filter projects"
           chips={[
@@ -61,14 +80,14 @@ export default async function PortfolioPage({
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:[&>*:nth-child(3n+1):last-child]:col-start-2">
-          {projects.map((project, i) => (
+          {clientWork.map((project, i) => (
             <Reveal key={project.id} delay={i * 80}>
-              <ProjectCard project={project} headingLevel={2} />
+              <ProjectCard project={project} headingLevel={products.length > 0 ? 3 : 2} />
             </Reveal>
           ))}
         </div>
 
-        {projects.length === 0 && (
+        {clientWork.length === 0 && (
           <EmptyState
             title="No projects in this category yet"
             body="We're adding case studies regularly. See everything we've shipped so far."

@@ -174,6 +174,11 @@ export default async function ProjectDetailPage({
                   <ExternalLink className="size-4" />
                 </Button>
               )}
+              {!project.projectUrl && project.title.includes("coming soon") && (
+                <Button render={<Link href="/contact#message" />} className="mt-6 w-full">
+                  Join the waitlist
+                </Button>
+              )}
               <Button render={<Link href="/start-a-project" />} className="mt-3 w-full">
                 Start a similar project
               </Button>
@@ -227,7 +232,7 @@ export default async function ProjectDetailPage({
                   alt={`${project.title} screenshot ${i + 1}`}
                   fill
                   sizes="(min-width: 640px) 33vw, 100vw"
-                  className="object-cover"
+                  className="object-cover object-top"
                 />
               </div>
             ))}
