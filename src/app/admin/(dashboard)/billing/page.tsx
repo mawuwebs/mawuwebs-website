@@ -6,7 +6,7 @@ import { fmtDate } from "@/lib/portal";
 import { daysFromNow } from "@/lib/portal-constants";
 import { balanceDue, formatMoney, isOverdue, totals, INVOICE_STATUS_LABEL, QUOTE_STATUS_LABEL } from "@/lib/billing";
 import { outstandingByCurrency } from "@/lib/billing-queries";
-import { BarChart3, Search, FileText, Receipt, Settings2, Download, Plus, Wallet, AlertTriangle } from "lucide-react";
+import { BarChart3, Banknote, Search, FileText, Receipt, Settings2, Download, Plus, Wallet, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -105,6 +105,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <p className="text-sm text-muted-foreground">Quotes, invoices and payments in one place.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link href="/admin/billing/expenses" className={buttonVariants({ variant: "ghost", size: "sm" })}><Banknote className="size-4" /> Expenses</Link>
           <Link href="/admin/billing/reports" className={buttonVariants({ variant: "ghost", size: "sm" })}><BarChart3 className="size-4" /> Reports</Link>
           <Link href="/admin/billing/settings" className={buttonVariants({ variant: "ghost", size: "sm" })}><Settings2 className="size-4" /> Settings</Link>
           <details className="group relative">
@@ -113,6 +114,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               {/* File downloads, not pages: plain links are correct. */}
               <a href="/admin/billing/export?kind=invoices" download className="block rounded-lg px-3 py-2 hover:bg-secondary">Invoices (CSV)</a>
               <a href="/admin/billing/export?kind=payments" download className="block rounded-lg px-3 py-2 hover:bg-secondary">Payments (CSV)</a>
+              <a href="/admin/billing/export?kind=expenses" download className="block rounded-lg px-3 py-2 hover:bg-secondary">Expenses (CSV)</a>
             </div>
           </details>
           <Link href="/admin/billing/quotes/new" className={buttonVariants({ variant: "outline", size: "sm" })}><FileText className="size-4" /> New quote</Link>

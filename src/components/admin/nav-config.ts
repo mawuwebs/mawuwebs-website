@@ -22,6 +22,7 @@ import {
   ClipboardCheck,
   Receipt,
   CreditCard,
+  KanbanSquare,
   type LucideIcon,
 } from "lucide-react";
 import type { Area } from "@/lib/permissions";
@@ -66,6 +67,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Orders", href: "/admin/messages", icon: Mail, area: "orders" },
       { label: "IT health checks", href: "/admin/health-checks", icon: ClipboardCheck, area: "orders" },
       { label: "Clients", href: "/admin/clients", icon: Building2, area: "orders" },
+      { label: "Client work", href: "/admin/work", icon: KanbanSquare, area: "orders" },
       { label: "Billing", href: "/admin/billing", icon: Receipt, area: "billing" },
       { label: "Tickets", href: "/admin/tickets", icon: LifeBuoy, area: "orders" },
       { label: "Newsletter", href: "/admin/newsletter", icon: Mails, area: "newsletter" },

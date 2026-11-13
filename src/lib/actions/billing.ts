@@ -17,7 +17,7 @@ import { getBillingSettings } from "@/lib/billing-settings";
 import { renderDocPdf } from "@/lib/doc-pdf";
 import { providersForCurrency } from "@/lib/payment-config";
 import {
-  CURRENCIES, PAYMENT_METHODS, isQuoteExpired, formatMoney, milestonesFromText, parseMoney, parseSignedMoney, parseTaxPercent, depositSplit, subtotal, totals, amountPaid,
+  CURRENCIES, PAYMENT_METHODS, isQuoteExpired, formatMoney, parseMoney, parseSignedMoney, parseTaxPercent, depositSplit, subtotal, totals, amountPaid,
 } from "@/lib/billing";
 
 export type BillingResult = { success: boolean; message: string; id?: string };
@@ -466,7 +466,11 @@ export async function voidInvoice(id: string): Promise<BillingResult> {
     if (!inv) return fail("Invoice not found.");
     if (inv.payments.length) return fail("Remove the recorded payments first, or leave the invoice as it is.");
     if (inv.status === "VOID") return fail("Already void.");
-    await prisma.invoice.update({ where: { id }, data: { status: "VOID" } });
+    // A void invoice no longer bills its re-billed expenses, so free them for the next invoice.
+    await prisma.$transaction([
+      prisma.invoice.update({ where: { id }, data: { status: "VOID" } }),
+      prisma.expense.updateMany({ where: { invoiceId: id }, data: { invoiceId: null } }),
+    ]);
     await logActivity({ userId: user.id, action: "updated", entityType: "Invoice", entityId: id, message: `${user.name ?? "Staff"} voided invoice ${inv.number}` });
     revalidateBilling(inv.userId);
     return { success: true, message: "Invoice voided.", id };
@@ -506,7 +510,6 @@ const projectSchema = z.object({
   status: z.enum(["PLANNING", "IN_PROGRESS", "REVIEW", "ON_HOLD", "DONE"]),
   startDate: z.string().default(""),
   dueDate: z.string().default(""),
-  milestones: z.string().max(6000).default(""),
 });
 
 export async function saveClientProject(id: string | null, clientId: string, input: z.input<typeof projectSchema>): Promise<BillingResult> {
@@ -520,8 +523,7 @@ export async function saveClientProject(id: string | null, clientId: string, inp
     const dueDate = parseDate(parsed.data.dueDate);
     if (startDate === "bad" || dueDate === "bad") return fail("Enter valid dates.");
     const data = {
-      title: parsed.data.title, summary: parsed.data.summary, status: parsed.data.status, startDate, dueDate,
-      milestones: JSON.stringify(milestonesFromText(parsed.data.milestones)),
+      title: parsed.data.title, summary: parsed.data.summary, status: parsed.data.status, startDate, dueDate
     };
     let projectId = id;
     if (id) {

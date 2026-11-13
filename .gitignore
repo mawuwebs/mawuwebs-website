@@ -58,3 +58,6 @@ next-env.d.ts
 /e2e/.tmp
 /test-results
 /playwright-report
+
+# private expense receipts
+/data/receipts/

@@ -77,7 +77,7 @@ export type ApplyOutcome = "recorded" | "duplicate" | "ignored";
  * The money is real once the gateway confirms it, so it is recorded even if the invoice is already
  * paid or void; only an unknown invoice or a currency mismatch is ignored.
  */
-export async function applyGatewayPayment(p: { invoiceId: string; amount: number; currency: string; provider: Provider; externalId: string; reference: string }): Promise<ApplyOutcome> {
+export async function applyGatewayPayment(p: { invoiceId: string; amount: number; currency: string; provider: Provider; externalId: string; reference: string; fee?: number }): Promise<ApplyOutcome> {
   if (!Number.isSafeInteger(p.amount) || p.amount <= 0) return "ignored";
   type Done = { number: string; currency: string; userId: string; user: { name: string; email: string }; settled: boolean; overpaid: number };
   let done: Done | null;
@@ -87,6 +87,16 @@ export async function applyGatewayPayment(p: { invoiceId: string; amount: number
       const inv = await tx.invoice.findUnique({ where: { id: p.invoiceId }, include: { items: true, payments: true, user: { select: { name: true, email: true } } } });
       if (!inv || inv.currency.toUpperCase() !== p.currency.toUpperCase()) throw new Error("ignored");
       await tx.payment.create({ data: { invoiceId: inv.id, amount: p.amount, method: p.provider, reference: p.reference, externalId: p.externalId } });
+      // The gateway keeps a fee from every charge. Book it as an expense in the same transaction (idempotent with the payment).
+      if (p.fee && Number.isSafeInteger(p.fee) && p.fee > 0 && p.fee < p.amount) {
+        await tx.expense.create({
+          data: {
+            category: "fees", vendor: p.provider === "paystack" ? "Paystack" : "Stripe", description: `${p.provider === "paystack" ? "Paystack" : "Stripe"} fee on ${inv.number}`,
+            amount: p.fee, currency: inv.currency.toUpperCase(), method: "other", reference: p.reference, source: "gateway", externalId: `fee:${p.externalId}`,
+            spentAt: new Date(),
+          },
+        });
+      }
       const total = totals(inv.items, inv.taxBp).total;
       const settled = amountPaid(inv.payments) + p.amount >= total;
       const overpaid = Math.max(0, amountPaid(inv.payments) + p.amount - total);

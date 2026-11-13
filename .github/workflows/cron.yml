@@ -50,8 +50,8 @@ jobs:
           esac
           case "$JOB" in
             uptime)  PATHS="uptime" ;;
-            daily)   PATHS="recurring-invoices invoice-reminders quote-followups asset-renewals billing-report?period=daily" ;;
-            weekly)  PATHS="digest billing-report?period=weekly" ;;
+            daily)   PATHS="recurring-invoices recurring-expenses invoice-reminders quote-followups asset-renewals task-reminders billing-report?period=daily" ;;
+            weekly)  PATHS="digest staff-digest project-updates billing-report?period=weekly" ;;
             monthly) PATHS="monthly-report billing-report?period=monthly" ;;
             *) echo "::error::unknown job '$JOB'"; exit 1 ;;
           esac

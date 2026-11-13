@@ -17,10 +17,9 @@ export type ProjectFormValues = {
   status: keyof typeof PROJECT_STATUS_LABEL;
   startDate: string;
   dueDate: string;
-  milestones: string;
 };
 
-export const EMPTY_PROJECT: ProjectFormValues = { title: "", summary: "", status: "PLANNING", startDate: "", dueDate: "", milestones: "" };
+export const EMPTY_PROJECT: ProjectFormValues = { title: "", summary: "", status: "PLANNING", startDate: "", dueDate: "" };
 
 const selectCls = "mt-1.5 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm";
 
@@ -61,10 +60,7 @@ export function ClientProjectForm({ clientId, projectId, initial }: { clientId: 
         <div><Label htmlFor={`cp-due-${id}`}>Due</Label><Input id={`cp-due-${id}`} type="date" className="mt-1.5" value={v.dueDate} onChange={(e) => set("dueDate", e.target.value)} /></div>
       </div>
       <div className="sm:col-span-4"><Label htmlFor={`cp-sum-${id}`}>What the client sees</Label><Textarea id={`cp-sum-${id}`} rows={2} className="mt-1.5" value={v.summary} onChange={(e) => set("summary", e.target.value)} maxLength={2000} /></div>
-      <div className="sm:col-span-4">
-        <Label htmlFor={`cp-ms-${id}`}>Milestones (one per line, start with [x] when done)</Label>
-        <Textarea id={`cp-ms-${id}`} rows={4} className="mt-1.5 font-mono text-xs" value={v.milestones} onChange={(e) => set("milestones", e.target.value)} placeholder={"[x] Kickoff call\n[ ] Design approved\n[ ] Launch"} />
-      </div>
+      <p className="sm:col-span-4 text-xs text-muted-foreground">Milestones, tasks, time and budget are managed in the project workspace after you save.</p>
       <div className="sm:col-span-4 flex flex-wrap items-center gap-2">
         <Button type="submit" size="sm" disabled={pending}>{pending && <Loader2 className="size-4 animate-spin" />} {projectId ? "Save project" : "Add project"}</Button>
         {projectId && (sure ? (

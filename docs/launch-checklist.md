@@ -35,8 +35,8 @@ Also call `/api/cron/invoice-reminders` daily (overdue reminders at 3 and 14 day
 | When | Endpoints |
 | --- | --- |
 | every 15 min | `uptime` (alerts you when a monitored client site goes down or recovers) |
-| daily 07:00 | `recurring-invoices`, `invoice-reminders`, `quote-followups` (one nudge after 5 days), `asset-renewals` (client notices at 30 and 7 days and on expiry), `billing-report?period=daily` |
-| Monday 08:00 | `digest`, `billing-report?period=weekly` |
+| daily 07:00 | `recurring-invoices`, `recurring-expenses` (records hosting/domain/subscription costs on their due date, or emails a reminder), `invoice-reminders`, `quote-followups` (one nudge after 5 days), `asset-renewals` (client notices at 30 and 7 days and on expiry), `task-reminders` (one email per staff member for overdue tasks), `billing-report?period=daily` |
+| Monday 08:00 | `digest`, `staff-digest` (each person's week; admins also see late projects and client requests), `project-updates` (clients get a progress email when tasks marked "show to client" finished that week), `billing-report?period=weekly` |
 | 1st, 07:00 | `monthly-report`, `billing-report?period=monthly` |
 
 Run any group by hand from the Actions tab (Scheduled jobs, Run workflow). GitHub can delay schedules a few minutes and pauses them after 60 days with no repository activity. To monitor a client site or send renewal notices, add the item under Client, Equipment and services with a website address and/or an expiry date.
@@ -87,3 +87,9 @@ Paystack covers GHS, NGN and USD. Stripe covers USD, EUR and GBP. Stripe does no
 - `npm run typecheck`, `npm run lint`, `npm test` (unit), then `npm run build && npm run test:e2e` (browser tests of the whole billing flow against a throwaway database). GitHub Actions runs all of these on every push and pull request (`.github/workflows/ci.yml`).
 - First local e2e run needs a browser: `npx playwright install chromium` (or set `E2E_CHROME` to an installed Chromium).
 - On the server, a deploy must run `npm ci` (its `postinstall` generates the Prisma client) and `npm run db:deploy` (applies migrations) before `npm run build`.
+
+## Expenses
+
+- Admin > Billing > Expenses. Receipts are private files, stored in `./data/receipts` (git-ignored) and served only to signed-in staff with billing access. Set `RECEIPT_DIR` to a persistent volume in production, and include that folder in your off-server backups next to the database.
+- Paystack fees are booked automatically as "Bank and gateway fees" when a card/MoMo payment arrives (from the `fees` field of the webhook). Stripe fees are not booked automatically: enter them by hand.
+- Expenses marked "Bill this cost to the client" with a project can be pulled into that project's draft invoice with one click.

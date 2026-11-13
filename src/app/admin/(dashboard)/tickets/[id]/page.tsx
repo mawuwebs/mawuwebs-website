@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { guardArea } from "@/lib/guard-area";
 import { fmtDate, ticketRef, TICKET_STATUS_LABEL } from "@/lib/portal";
 import { StaffReplyForm } from "@/components/admin/client-forms";
+import { TicketProjectLink } from "@/components/admin/work-forms";
 
 export const metadata: Metadata = { title: "Ticket" };
 
@@ -13,9 +14,10 @@ export default async function TicketAdminPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const t = await prisma.ticket.findUnique({
     where: { id },
-    include: { user: true, replies: { orderBy: { createdAt: "asc" } } },
+    include: { user: true, replies: { orderBy: { createdAt: "asc" } }, tasks: { select: { id: true }, take: 1 } },
   });
   if (!t) notFound();
+  const projects = await prisma.clientProject.findMany({ where: { userId: t.userId }, select: { id: true, title: true }, orderBy: { createdAt: "desc" } });
   return (
     <div className="max-w-3xl space-y-6">
       <div>
@@ -34,6 +36,11 @@ export default async function TicketAdminPage({ params }: { params: Promise<{ id
           </div>
         ))}
       </div>
+      <section className="space-y-2 rounded-xl border border-border bg-card p-4" aria-label="Project link">
+        <h2 className="text-sm font-semibold">Project</h2>
+        <TicketProjectLink ticketId={t.id} projects={projects} current={t.projectId ?? ""} hasTask={t.tasks.length > 0} />
+        {t.projectId && <Link href={`/admin/work/${t.projectId}`} className="text-sm text-accent hover:underline">Open project workspace</Link>}
+      </section>
       <StaffReplyForm ticketId={t.id} status={t.status} />
     </div>
   );

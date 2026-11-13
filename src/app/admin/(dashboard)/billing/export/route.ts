@@ -3,20 +3,22 @@ import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_LABEL, amountPaid, csvCell, totals } from "@/lib/billing";
+import { EXPENSE_CATEGORY_LABEL } from "@/lib/expenses";
 
 export const dynamic = "force-dynamic";
 
 const money = (minor: number) => Number((minor / 100).toFixed(2));
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
-/** CSV for the accountant: ?kind=invoices|payments&year=2026 (year optional). Amounts are in major units. */
+/** CSV for the accountant: ?kind=invoices|payments|expenses&year=2026 (year optional). Amounts are in major units. */
 export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
   if (!can(session.user.role, "billing")) return new NextResponse("Forbidden", { status: 403 });
 
   const p = request.nextUrl.searchParams;
-  const kind = p.get("kind") === "payments" ? "payments" : "invoices";
+  const k = p.get("kind");
+  const kind = k === "payments" || k === "expenses" ? k : "invoices";
   const yearRaw = p.get("year");
   const year = yearRaw && /^\d{4}$/.test(yearRaw) ? Number(yearRaw) : null;
   const d = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T00:00:00Z`) : null);
@@ -37,6 +39,14 @@ export async function GET(request: NextRequest) {
       const paid = amountPaid(i.payments);
       return [i.number, day(i.issueDate), day(i.dueDate), i.user.name, i.user.company, i.title, i.status, i.currency, money(t.subtotal), money(t.tax), money(t.total), money(paid), money(i.status === "VOID" ? 0 : t.total - paid)];
     });
+  } else if (kind === "expenses") {
+    const expenses = await prisma.expense.findMany({
+      where: { deletedAt: null, ...(range ? { spentAt: range } : {}) },
+      orderBy: { spentAt: "asc" },
+      include: { project: { select: { title: true } }, invoice: { select: { number: true } } },
+    });
+    header = ["Date", "Description", "Vendor", "Category", "Method", "Reference", "Project", "Currency", "Amount", "Tax included", "Bill to client", "Billed on", "Receipt", "Source", "Note"];
+    rows = expenses.map((x) => [day(x.spentAt), x.description, x.vendor, EXPENSE_CATEGORY_LABEL[x.category] ?? x.category, PAYMENT_METHOD_LABEL[x.method] ?? x.method, x.reference, x.project?.title ?? "", x.currency, money(x.amount), money(x.taxAmount), x.billable ? "yes" : "no", x.invoice?.number ?? "", x.receiptFile ? "yes" : "no", x.source, x.note]);
   } else {
     const payments = await prisma.payment.findMany({
       where: range ? { paidAt: range } : {},

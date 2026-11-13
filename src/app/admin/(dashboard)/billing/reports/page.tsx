@@ -4,6 +4,7 @@ import { ArrowLeft, Download } from "lucide-react";
 import { guardArea } from "@/lib/guard-area";
 import { PAYMENT_METHOD_LABEL, formatMoney } from "@/lib/billing";
 import { PERIODS, buildReport, resolveRange, seriesLabel } from "@/lib/billing-reports";
+import { EXPENSE_CATEGORY_LABEL } from "@/lib/expenses";
 import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Billing reports" };
@@ -50,10 +51,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </form>
       </div>
 
-      {currencies.length === 0 && <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">No invoices or payments in this period.</div>}
+      {currencies.length === 0 && <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">No invoices, payments or expenses in this period.</div>}
 
       {currencies.map(([c, r]) => {
-        const max = Math.max(1, ...r.series.flatMap((s) => [s.invoiced, s.collected]));
+        const max = Math.max(1, ...r.series.flatMap((s) => [s.invoiced, s.collected, s.expenses]));
         const rate = r.invoiced > 0 ? Math.round((r.collected / r.invoiced) * 100) : null;
         return (
           <section key={c} aria-label={`${c} report`} className="space-y-4">
@@ -63,6 +64,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 { l: "Invoiced", v: formatMoney(r.invoiced, c), s: `${r.invoiceCount} invoice${r.invoiceCount === 1 ? "" : "s"}` },
                 { l: "Collected", v: formatMoney(r.collected, c), s: `${r.paymentCount} payment${r.paymentCount === 1 ? "" : "s"}${rate !== null ? ` · ${rate}% of invoiced` : ""}` },
                 ...(r.refunded > 0 ? [{ l: "Refunded", v: `−${formatMoney(r.refunded, c)}`, s: `Net collected ${formatMoney(r.net, c)}`, bad: true }] : []),
+                { l: "Expenses", v: formatMoney(r.expenses, c), s: r.expenseTax > 0 ? `Includes ${formatMoney(r.expenseTax, c)} input tax` : "Money spent in this period" },
+                { l: "Profit", v: formatMoney(r.profit, c), s: "Net collected minus expenses", bad: r.profit < 0 },
                 { l: "Outstanding now", v: formatMoney(r.outstanding, c), s: "All sent, unpaid invoices" },
                 { l: "Overdue now", v: formatMoney(r.overdue, c), s: "Past their due date", bad: r.overdue > 0 },
               ].map((k) => (
@@ -77,15 +80,16 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <div className="rounded-2xl border border-border bg-card p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">{range.bucket === "month" ? "By month" : "By day"}</h3>
-                <p className="flex gap-4 text-xs text-muted-foreground"><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-primary" /> Invoiced</span><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-[#f5a623]" /> Collected</span></p>
+                <p className="flex gap-4 text-xs text-muted-foreground"><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-primary" /> Invoiced</span><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-[#f5a623]" /> Collected</span><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-destructive" /> Expenses</span></p>
               </div>
               <div className="mt-4 overflow-x-auto">
-                <div className="flex h-44 items-end gap-1.5" style={{ minWidth: `${Math.min(r.series.length, 62) * 22}px` }} role="img" aria-label={`Invoiced and collected per ${range.bucket}`}>
+                <div className="flex h-44 items-end gap-1.5" style={{ minWidth: `${Math.min(r.series.length, 62) * 22}px` }} role="img" aria-label={`Invoiced, collected and expenses per ${range.bucket}`}>
                   {r.series.map((s) => (
-                    <div key={s.label} className="flex h-full flex-1 flex-col justify-end gap-1" title={`${seriesLabel(s.label, range.bucket)}: invoiced ${formatMoney(s.invoiced, c)}, collected ${formatMoney(s.collected, c)}`}>
+                    <div key={s.label} className="flex h-full flex-1 flex-col justify-end gap-1" title={`${seriesLabel(s.label, range.bucket)}: invoiced ${formatMoney(s.invoiced, c)}, collected ${formatMoney(s.collected, c)}, expenses ${formatMoney(s.expenses, c)}`}>
                       <div className="flex flex-1 items-end gap-px">
-                        <div className="w-1/2 rounded-t bg-primary" style={{ height: `${(s.invoiced / max) * 100}%`, minHeight: s.invoiced ? 2 : 0 }} />
-                        <div className="w-1/2 rounded-t bg-[#f5a623]" style={{ height: `${(s.collected / max) * 100}%`, minHeight: s.collected ? 2 : 0 }} />
+                        <div className="w-1/3 rounded-t bg-primary" style={{ height: `${(s.invoiced / max) * 100}%`, minHeight: s.invoiced ? 2 : 0 }} />
+                        <div className="w-1/3 rounded-t bg-[#f5a623]" style={{ height: `${(s.collected / max) * 100}%`, minHeight: s.collected ? 2 : 0 }} />
+                        <div className="w-1/3 rounded-t bg-destructive" style={{ height: `${(s.expenses / max) * 100}%`, minHeight: s.expenses ? 2 : 0 }} />
                       </div>
                       <span className="truncate text-center text-[10px] text-muted-foreground">{r.series.length <= 14 || r.series.indexOf(s) % Math.ceil(r.series.length / 12) === 0 ? seriesLabel(s.label, range.bucket) : " "}</span>
                     </div>
@@ -110,6 +114,20 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {r.expenseByCategory.length > 0 && (
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Expenses by category</h3><Link href={`/admin/billing/expenses?period=custom&${q}`} className="text-xs underline underline-offset-2">View all</Link></div>
+                <ul className="mt-3 space-y-2.5 text-sm">
+                  {r.expenseByCategory.map((x) => (
+                    <li key={x.category}>
+                      <div className="flex justify-between gap-2"><span>{EXPENSE_CATEGORY_LABEL[x.category] ?? x.category} <span className="text-xs text-muted-foreground">×{x.count}</span></span><span className="tabular-nums">{formatMoney(x.amount, c)}</span></div>
+                      <div className="mt-1 h-1.5 rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${r.expenses > 0 ? Math.max(2, Math.min(100, (x.amount / r.expenses) * 100)) : 0}%` }} /></div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 

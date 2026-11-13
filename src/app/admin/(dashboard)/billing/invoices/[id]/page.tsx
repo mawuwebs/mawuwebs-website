@@ -10,6 +10,7 @@ import { fmtDate } from "@/lib/portal";
 import { editorOptions, invoiceInclude, invoiceToView } from "@/lib/billing-queries";
 import { DocumentEditor } from "@/components/admin/document-editor";
 import { DocumentView } from "@/components/billing/document-view";
+import { AddBillableExpensesButton } from "@/components/admin/expense-forms";
 import { InvoiceActions, PaymentForm, RefundForm, RemovePaymentButton } from "@/components/admin/billing-actions";
 
 export const metadata: Metadata = { title: "Invoice" };
@@ -23,6 +24,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const settings = await getSiteSettings();
   const isDraft = invoice.status === "DRAFT";
   const { clients, projects } = isDraft ? await editorOptions() : { clients: [], projects: [] };
+  const billable = isDraft && invoice.projectId
+    ? await prisma.expense.aggregate({ where: { projectId: invoice.projectId, billable: true, invoiceId: null, deletedAt: null, currency: invoice.currency }, _count: { _all: true }, _sum: { amount: true } })
+    : null;
   const balance = balanceDue(totals(invoice.items, invoice.taxBp).total, invoice.payments);
   // Older gateway refund rows were logged against the invoice number, so match both.
   const history = await prisma.activityLog.findMany({
@@ -51,7 +55,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
       )}
       {isDraft ? (
         <>
+          {billable && billable._count._all > 0 && <AddBillableExpensesButton invoiceId={invoice.id} count={billable._count._all} label={formatMoney(billable._sum.amount ?? 0, invoice.currency)} />}
           <DocumentEditor
+            key={invoice.items.length}
             kind="invoice" id={invoice.id} clients={clients} projects={projects}
             initial={{
               clientId: invoice.userId, projectId: invoice.projectId ?? "", title: invoice.title, currency: invoice.currency, taxPercent: bpToPercent(invoice.taxBp), notes: invoice.notes,

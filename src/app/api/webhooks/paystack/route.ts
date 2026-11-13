@@ -3,7 +3,7 @@ import { applyGatewayPayment, applyGatewayRefund, logWebhookEvent } from "@/lib/
 import { getGatewayConfig } from "@/lib/payment-config";
 import { verifyPaystackSignature } from "@/lib/payments-verify";
 
-type Evt = { event?: string; data?: { status?: string; reference?: string; transaction_reference?: string; refund_reference?: string; amount?: number; currency?: string; id?: number; metadata?: { invoiceId?: string } } };
+type Evt = { event?: string; data?: { status?: string; reference?: string; transaction_reference?: string; refund_reference?: string; amount?: number; fees?: number; currency?: string; id?: number; metadata?: { invoiceId?: string } } };
 
 /** Paystack webhook. Set the URL in the Paystack dashboard to https://yourdomain/api/webhooks/paystack */
 export async function POST(request: NextRequest) {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   const type = evt.event ?? "unknown";
   try {
     if (type === "charge.success" && d?.status === "success" && d.metadata?.invoiceId && typeof d.amount === "number" && d.currency && d.reference) {
-      const outcome = await applyGatewayPayment({ invoiceId: d.metadata.invoiceId, amount: d.amount, currency: d.currency, provider: "paystack", externalId: `paystack:${d.reference}`, reference: d.reference });
+      const outcome = await applyGatewayPayment({ invoiceId: d.metadata.invoiceId, amount: d.amount, currency: d.currency, provider: "paystack", externalId: `paystack:${d.reference}`, reference: d.reference, fee: typeof d.fees === "number" ? d.fees : undefined });
       await logWebhookEvent({ provider: "paystack", eventType: type, outcome, reference: d.reference });
     } else if (type === "refund.processed" && d?.transaction_reference && typeof d.amount === "number" && d.currency) {
       // Refund finished. Paystack refund payloads carry the original transaction reference.

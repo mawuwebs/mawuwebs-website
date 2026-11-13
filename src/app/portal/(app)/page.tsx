@@ -3,17 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { requirePortalUser, daysFromNow, fmtDate, ticketRef, TICKET_STATUS_LABEL } from "@/lib/portal";
 import { buttonVariants } from "@/components/ui/button";
 import { balanceDue, formatMoney, isOverdue, totals } from "@/lib/billing";
+import { progressOf } from "@/lib/work";
 
 export default async function PortalHome() {
   const user = await requirePortalUser();
   const soon = daysFromNow(60);
-  const [open, tickets, expiring, report, quotesAwaiting, unpaid] = await Promise.all([
+  const [open, tickets, expiring, report, quotesAwaiting, unpaid, activeProjects, approvals] = await Promise.all([
     prisma.ticket.count({ where: { userId: user.id, status: { not: "RESOLVED" } } }),
     prisma.ticket.findMany({ where: { userId: user.id }, orderBy: { updatedAt: "desc" }, take: 5 }),
     prisma.clientAsset.findMany({ where: { userId: user.id, expiresAt: { not: null, lt: soon } }, orderBy: { expiresAt: "asc" }, take: 5 }),
     prisma.clientDocument.findFirst({ where: { userId: user.id, kind: "report" }, orderBy: { createdAt: "desc" } }),
     prisma.quote.findMany({ where: { userId: user.id, status: "SENT" }, orderBy: { createdAt: "desc" }, include: { items: true } }),
     prisma.invoice.findMany({ where: { userId: user.id, status: "SENT" }, orderBy: { dueDate: "asc" }, include: { items: true, payments: true } }),
+    prisma.clientProject.findMany({ where: { userId: user.id, status: { in: ["IN_PROGRESS", "REVIEW"] } }, orderBy: { updatedAt: "desc" }, take: 3, include: { tasks: { where: { clientVisible: true }, select: { status: true } } } }),
+    prisma.milestone.findMany({ where: { requiresApproval: true, completedAt: { not: null }, approvedAt: null, project: { userId: user.id } }, include: { project: { select: { id: true, title: true } } }, orderBy: { completedAt: "asc" } }),
   ]);
   const owed = unpaid
     .map((i) => ({ i, bal: balanceDue(totals(i.items, i.taxBp).total, i.payments) }))
@@ -28,10 +31,18 @@ export default async function PortalHome() {
         <Link href="/portal/tickets/new" className={buttonVariants()}>New support request</Link>
       </div>
 
-      {(quotesAwaiting.length > 0 || owed.length > 0) && (
+      {(quotesAwaiting.length > 0 || owed.length > 0 || approvals.length > 0) && (
         <section aria-label="Needs your attention" className="space-y-3">
           <h2 className="font-display text-xl font-semibold">Needs your attention</h2>
           <ul className="divide-y divide-border border-y border-border">
+            {approvals.map((m) => (
+              <li key={m.id}>
+                <Link href={`/portal/projects/${m.project.id}`} className="flex flex-wrap items-baseline justify-between gap-x-4 py-3 hover:bg-secondary/60 sm:px-2">
+                  <span>{m.project.title}: {m.title}</span>
+                  <span className="text-sm text-accent">ready for your approval</span>
+                </Link>
+              </li>
+            ))}
             {quotesAwaiting.map((q) => (
               <li key={q.id}>
                 <Link href={`/portal/quotes/${q.id}`} className="flex flex-wrap items-baseline justify-between gap-x-4 py-3 hover:bg-secondary/60 sm:px-2">
@@ -48,6 +59,30 @@ export default async function PortalHome() {
                 </Link>
               </li>
             ))}
+          </ul>
+        </section>
+      )}
+
+      {activeProjects.length > 0 && (
+        <section aria-label="Projects in progress" className="space-y-3">
+          <div className="flex items-baseline justify-between"><h2 className="font-display text-xl font-semibold">Projects in progress</h2><Link href="/portal/projects" className="text-sm text-accent hover:underline">All projects</Link></div>
+          <ul className="space-y-3">
+            {activeProjects.map((p) => {
+              const pr = progressOf(p.tasks);
+              return (
+                <li key={p.id}>
+                  <Link href="/portal/projects" className="block rounded-xl border border-border p-4 hover:bg-secondary/60">
+                    <p className="font-medium">{p.title}</p>
+                    {pr.total > 0 && (
+                      <>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={pr.pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${p.title} progress`}><div className="h-full rounded-full bg-primary" style={{ width: `${pr.pct}%` }} /></div>
+                        <p className="mt-1 text-xs text-muted-foreground">{pr.done} of {pr.total} tasks done</p>
+                      </>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

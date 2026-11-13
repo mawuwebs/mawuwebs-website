@@ -16,6 +16,7 @@ import { getDashboardData, getHealthChecks, getOrderSummary, parseRange, RANGES 
 import { KIND_LABEL, STATUS_OPTIONS, formatMoney, isUrgent, kindOf } from "@/lib/submission";
 import { OrdersAlert } from "@/components/admin/orders-alert";
 import { BillingDashboard } from "@/components/admin/billing-dashboard";
+import { WorkDashboard } from "@/components/admin/work-dashboard";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Dashboard", robots: { index: false, follow: false } };
@@ -137,6 +138,7 @@ export default async function AdminOverviewPage({
 
       {canOrders && orders.total > 0 && <OrdersAlert summary={orders} />}
       {canBilling && <BillingDashboard days={range} />}
+      {canOrders && session?.user?.id && <WorkDashboard userId={session.user.id} days={range} canBilling={canBilling} />}
 
       {health.length > 0 && (
         <details className="group rounded-2xl border border-accent/30 bg-accent/5 px-5 py-3">

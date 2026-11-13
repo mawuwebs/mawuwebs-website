@@ -1,21 +1,23 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { amountPaid, totals } from "@/lib/billing";
+import { byCategory, profit } from "@/lib/expenses";
 import { iso, DAY, type resolveRange } from "@/lib/billing-range";
 
 export { PERIODS, resolveRange, seriesLabel, type PeriodKey } from "@/lib/billing-range";
 
 export type CurrencyReport = {
+  expenses: number; expenseTax: number; profit: number; expenseByCategory: { category: string; amount: number; count: number }[];
   invoiced: number; collected: number; refunded: number; net: number; invoiceCount: number; paymentCount: number; outstanding: number; overdue: number;
   /** Unpaid balance of sent invoices by how far past due they are (now). */
   aging: { current: number; d1_30: number; d31_60: number; d61plus: number };
-  series: { label: string; invoiced: number; collected: number }[];
+  series: { label: string; invoiced: number; collected: number; expenses: number }[];
   byMethod: { method: string; amount: number; count: number }[];
   topClients: { name: string; invoiced: number; collected: number }[];
 };
 
 export async function buildReport(range: ReturnType<typeof resolveRange>) {
-  const [invoices, payments, open] = await Promise.all([
+  const [invoices, payments, open, expenseRows] = await Promise.all([
     prisma.invoice.findMany({
       where: { status: { notIn: ["DRAFT", "VOID"] }, issueDate: { gte: range.from, lt: range.to } },
       include: { items: true, user: { select: { name: true, company: true } } },
@@ -25,6 +27,7 @@ export async function buildReport(range: ReturnType<typeof resolveRange>) {
       include: { invoice: { select: { currency: true, user: { select: { name: true, company: true } } } } },
     }),
     prisma.invoice.findMany({ where: { status: "SENT" }, include: { items: true, payments: true } }),
+    prisma.expense.findMany({ where: { deletedAt: null, spentAt: { gte: range.from, lt: range.to } }, select: { currency: true, category: true, amount: true, taxAmount: true, spentAt: true } }),
   ]);
 
   const key = (d: Date) => (range.bucket === "month" ? iso(d).slice(0, 7) : iso(d));
@@ -33,9 +36,10 @@ export async function buildReport(range: ReturnType<typeof resolveRange>) {
 
   const out: Record<string, CurrencyReport> = {};
   const cur = (c: string) => (out[c] ??= {
+    expenses: 0, expenseTax: 0, profit: 0, expenseByCategory: [],
     invoiced: 0, collected: 0, refunded: 0, net: 0, invoiceCount: 0, paymentCount: 0, outstanding: 0, overdue: 0,
     aging: { current: 0, d1_30: 0, d31_60: 0, d61plus: 0 },
-    series: labels.map((label) => ({ label, invoiced: 0, collected: 0 })), byMethod: [], topClients: [],
+    series: labels.map((label) => ({ label, invoiced: 0, collected: 0, expenses: 0 })), byMethod: [], topClients: [],
   });
   const clients: Record<string, Map<string, { name: string; invoiced: number; collected: number }>> = {};
   const client = (c: string, u: { name: string; company: string }) => {
@@ -62,6 +66,11 @@ export async function buildReport(range: ReturnType<typeof resolveRange>) {
     const e = m.get(p.method) ?? { amount: 0, count: 0 };
     e.amount += p.amount; e.count++; m.set(p.method, e);
   }
+  for (const x of expenseRows) {
+    const r = cur(x.currency);
+    r.expenses += x.amount; r.expenseTax += x.taxAmount;
+    const s = r.series.find((e) => e.label === key(x.spentAt)); if (s) s.expenses += x.amount;
+  }
   const now = new Date();
   for (const i of open) {
     const bal = Math.max(0, totals(i.items, i.taxBp).total - amountPaid(i.payments));
@@ -77,6 +86,8 @@ export async function buildReport(range: ReturnType<typeof resolveRange>) {
   }
   for (const c of Object.keys(out)) {
     out[c].net = out[c].collected - out[c].refunded;
+    out[c].profit = profit(out[c].net, out[c].expenses);
+    out[c].expenseByCategory = byCategory(expenseRows.filter((x) => x.currency === c));
     out[c].byMethod = [...(methods[c] ?? [])].map(([method, v]) => ({ method, ...v })).sort((a, b) => b.amount - a.amount);
     out[c].topClients = [...(clients[c]?.values() ?? [])].sort((a, b) => b.invoiced + b.collected - (a.invoiced + a.collected)).slice(0, 5);
   }

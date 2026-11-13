@@ -6,7 +6,7 @@ import { guardArea } from "@/lib/guard-area";
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { fmtDate, ticketRef, TICKET_STATUS_LABEL } from "@/lib/portal";
-import { balanceDue, formatMoney, isOverdue, milestonesToText, parseMilestones, totals, INVOICE_STATUS_LABEL, PROJECT_STATUS_LABEL, QUOTE_STATUS_LABEL } from "@/lib/billing";
+import { balanceDue, formatMoney, isOverdue, totals, INVOICE_STATUS_LABEL, PROJECT_STATUS_LABEL, QUOTE_STATUS_LABEL } from "@/lib/billing";
 import { telHref, whatsappHref } from "@/lib/phone";
 import { Globe, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -26,7 +26,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       assets: { orderBy: { name: "asc" } },
       documents: { orderBy: { createdAt: "desc" } },
       tickets: { orderBy: { updatedAt: "desc" }, take: 20 },
-      projects: { orderBy: { createdAt: "desc" } },
+      projects: { orderBy: { createdAt: "desc" }, include: { milestoneRows: { select: { completedAt: true } } } },
       quotes: { orderBy: { createdAt: "desc" }, include: { items: true } },
       invoices: { orderBy: { createdAt: "desc" }, include: { items: true, payments: true } },
       recurring: { orderBy: { createdAt: "desc" } },
@@ -130,14 +130,14 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           <div className="mt-4"><ClientProjectForm clientId={client.id} projectId={null} initial={EMPTY_PROJECT} /></div>
         </details>
         {client.projects.map((p) => {
-          const ms = parseMilestones(p.milestones);
+          const ms = p.milestoneRows;
           return (
             <details key={p.id} className="rounded-2xl border border-border bg-card p-5">
-              <summary className="cursor-pointer text-sm"><span className="font-medium">{p.title}</span> <span className="text-muted-foreground">· {PROJECT_STATUS_LABEL[p.status]} · {ms.filter((m) => m.done).length}/{ms.length} milestones{p.dueDate ? ` · due ${fmtDate(p.dueDate)}` : ""}</span></summary>
+              <summary className="cursor-pointer text-sm"><span className="font-medium">{p.title}</span> <Link href={`/admin/work/${p.id}`} className="text-accent hover:underline">Open workspace</Link> <span className="text-muted-foreground">· {PROJECT_STATUS_LABEL[p.status]} · {ms.filter((m) => m.completedAt).length}/{ms.length} milestones{p.dueDate ? ` · due ${fmtDate(p.dueDate)}` : ""}</span></summary>
               <div className="mt-4">
                 <ClientProjectForm
                   clientId={client.id} projectId={p.id}
-                  initial={{ title: p.title, summary: p.summary, status: p.status, startDate: p.startDate?.toISOString().slice(0, 10) ?? "", dueDate: p.dueDate?.toISOString().slice(0, 10) ?? "", milestones: milestonesToText(ms) }}
+                  initial={{ title: p.title, summary: p.summary, status: p.status, startDate: p.startDate?.toISOString().slice(0, 10) ?? "", dueDate: p.dueDate?.toISOString().slice(0, 10) ?? "" }}
                 />
               </div>
             </details>
