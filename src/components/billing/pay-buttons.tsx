@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { startCheckout } from "@/lib/actions/billing";
 
-const LABEL = { paystack: "Pay with card or mobile money", stripe: "Pay by card" } as const;
+const LABEL = { paystack: "Pay with MoMo or card", stripe: "Pay by card" } as const;
 
 export function PayButtons({ token, providers, amountLabel }: { token: string; providers: ("paystack" | "stripe")[]; amountLabel: string }) {
   const [pending, start] = useTransition();

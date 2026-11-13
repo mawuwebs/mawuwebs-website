@@ -1,6 +1,6 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { revalidatePath } from "next/cache";
+import { revalidatePath as nextRevalidate } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity-log";
 import { sendMail, notifyEmail, siteUrl } from "@/lib/mail";
@@ -10,6 +10,15 @@ import { getGatewayConfig } from "@/lib/payment-config";
 import type { Provider } from "@/lib/payments-verify";
 
 const TIMEOUT = 10_000;
+
+/** Cache refresh is best effort: the money is already recorded, so a failure here must not fail the webhook. */
+function revalidatePath(path: string) {
+  try {
+    nextRevalidate(path);
+  } catch (err) {
+    console.warn("[gateway] revalidate skipped", path, err instanceof Error ? err.message : err);
+  }
+}
 
 /** Starts a hosted checkout for the invoice's current balance and returns the URL to send the payer to. */
 export async function createCheckoutUrl(token: string, provider: Provider): Promise<{ url: string } | { error: string }> {
@@ -121,7 +130,7 @@ export async function applyGatewayRefund(p: {
   reference: string;
 }): Promise<ApplyOutcome> {
   if (!Number.isSafeInteger(p.amount) || p.amount <= 0) return "ignored";
-  type Done = { number: string; currency: string; userId: string; delta: number; reopened: boolean; user: { name: string } };
+  type Done = { invoiceId: string; number: string; currency: string; userId: string; delta: number; reopened: boolean; user: { name: string } };
   let done: Done | null;
   try {
     done = await prisma.$transaction(async (tx): Promise<Done | null> => {
@@ -139,7 +148,7 @@ export async function applyGatewayRefund(p: {
       await tx.payment.create({ data: { invoiceId: inv.id, amount: -delta, method: "refund", reference: p.reference, note: `${p.provider} refund`, externalId: p.externalId } });
       const reopened = inv.status === "PAID" && amountPaid(inv.payments) - delta < totals(inv.items, inv.taxBp).total;
       if (reopened) await tx.invoice.update({ where: { id: inv.id }, data: { status: "SENT", paidAt: null } });
-      return { number: inv.number, currency: inv.currency, userId: inv.userId, delta, reopened, user: inv.user };
+      return { invoiceId: inv.id, number: inv.number, currency: inv.currency, userId: inv.userId, delta, reopened, user: inv.user };
     });
   } catch (err) {
     if ((err as { code?: string }).code === "P2002") return "duplicate";
@@ -147,11 +156,33 @@ export async function applyGatewayRefund(p: {
     throw err;
   }
   if (!done) return "duplicate";
-  await logActivity({ userId: null, action: "updated", entityType: "Invoice", entityId: done.number, message: `${p.provider} refund of ${formatMoney(done.delta, done.currency)} on ${done.number}${done.reopened ? " (invoice reopened)" : ""}` });
+  await logActivity({ userId: null, action: "updated", entityType: "Invoice", entityId: done.invoiceId, message: `${p.provider} refund of ${formatMoney(done.delta, done.currency)} on ${done.number}${done.reopened ? " (invoice reopened)" : ""}` });
   const settings = await getSiteSettings();
   await sendMail({ to: notifyEmail(settings.contactEmail), subject: `Refund: ${done.number}`, text: `${p.provider} refunded ${formatMoney(done.delta, done.currency)} to ${done.user.name} on ${done.number}.${done.reopened ? " The invoice is open again." : ""}\n\n${siteUrl()}/admin/billing` });
   revalidatePath("/admin/billing");
   revalidatePath(`/admin/clients/${done.userId}`);
   revalidatePath("/portal/billing");
   return "recorded";
+}
+
+const OUTCOME_DETAIL: Record<ApplyOutcome, string> = {
+  recorded: "Recorded on the invoice.",
+  duplicate: "Already recorded (the gateway retried).",
+  ignored: "Not applied: unknown invoice, unknown original payment, or currency mismatch. Check the gateway dashboard.",
+};
+
+/** Keeps a reconciliation trail of every webhook. Never throws: logging must not break payment handling. */
+export async function logWebhookEvent(e: { provider: Provider; eventType: string; outcome: ApplyOutcome | "rejected" | "error" | "skipped"; detail?: string; reference?: string }) {
+  try {
+    await prisma.webhookEvent.create({
+      data: {
+        provider: e.provider, eventType: e.eventType.slice(0, 80), outcome: e.outcome,
+        detail: (e.detail ?? (e.outcome in OUTCOME_DETAIL ? OUTCOME_DETAIL[e.outcome as ApplyOutcome] : "")).slice(0, 300), reference: (e.reference ?? "").slice(0, 120),
+      },
+    });
+    // Keep the table small: drop anything older than 90 days.
+    await prisma.webhookEvent.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 90 * 86400_000) } } });
+  } catch (err) {
+    console.error("[webhook-log] failed", err);
+  }
 }

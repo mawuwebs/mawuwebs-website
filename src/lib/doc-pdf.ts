@@ -1,4 +1,3 @@
-import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { amountPaid, balanceDue, lineTotal, totals, PAYMENT_METHOD_LABEL } from "@/lib/billing";
 import type { DocViewData, Issuer } from "@/components/billing/document-view";
@@ -136,8 +135,8 @@ export async function renderDocPdf(doc: DocViewData, issuer: Issuer, extra: { le
     y -= 16;
   }
   if (isInvoice) {
-    y -= 4;
-    page.drawRectangle({ x: tx - 10, y: y - 10, width: 218, height: 30, color: NAVY });
+    y -= 10;
+    page.drawRectangle({ x: tx - 10, y: y - 10, width: 210, height: 30, color: NAVY });
     text(balance <= 0 && t.total > 0 ? "Balance (PAID)" : "Balance due", tx, y, { font: bold, color: rgb(1, 1, 1), size: 10 });
     text(money(balance, doc.currency), W - M - 8, y, { right: true, font: bold, size: 12, color: GOLD });
     y -= 40;

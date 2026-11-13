@@ -34,7 +34,13 @@ Also call `/api/cron/invoice-reminders` daily (overdue reminders at 3 and 14 day
 npm run db:backup
 ```
 
-Writes a consistent, integrity-checked copy to `./backups` (override with `BACKUP_DIR`, keep count with `BACKUP_KEEP`, default 14). Schedule it daily, then copy the folder off the server, for example to cloud storage. A backup on the same disk does not survive losing the disk. Do one restore test: copy a backup over a scratch database and open it.
+Writes a consistent, integrity-checked copy to `./backups` (override with `BACKUP_DIR`, keep count with `BACKUP_KEEP`, default 14). Schedule it daily, then copy the folder off the server, for example to cloud storage. A backup on the same disk does not survive losing the disk. Example crontab (daily at 02:30, then copy off the box; replace the path and the rclone remote with yours):
+
+```
+30 2 * * * cd /path/to/mawuwebs && npm run db:backup >> backups/backup.log 2>&1 && rclone copy backups remote:mawuwebs-backups --max-age 2d
+```
+
+Do one restore test: copy a backup over a scratch database and open it.
 
 ## 4. Gateway test mode
 
@@ -55,3 +61,10 @@ e. **Refunds**: refund the test payment from the gateway dashboard. Within a min
 f. **Go live**: replace the keys with live ones in Payments, update the Stripe signing secret, make one small real payment, refund it from the gateway dashboard, and check the refund row appears.
 
 Paystack covers GHS, NGN and USD. Stripe covers USD, EUR and GBP. Stripe does not process GHS.
+
+
+## Invoice reminders and PDFs
+
+- `/api/cron/invoice-reminders` (daily) now sends three emails per unpaid invoice: once when the due date is within 3 days, again 3 days after it is overdue, and a final one at 14 days. The "due soon" note is sent once (`preDueReminderAt`). Switch all reminders off in Billing settings.
+- Invoice emails carry a PDF copy. If PDF rendering fails the email still goes out with the link.
+- Clients who pay by mobile money or bank transfer can press "I have paid" on the invoice page. You get an email and a History entry; nothing is marked paid until you record the payment.

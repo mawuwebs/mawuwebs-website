@@ -25,7 +25,7 @@ export default async function PortalQuote({ params }: { params: Promise<{ id: st
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link href="/portal/billing" className="text-sm text-muted-foreground hover:text-foreground">← Quotes and invoices</Link>
-        <PrintButton />
+        <PrintButton pdfHref={`/q/${quote.token}/pdf`} />
       </div>
       <DocumentView doc={quoteToView(quote)} issuer={settings} />
       <div className="mx-auto max-w-3xl">

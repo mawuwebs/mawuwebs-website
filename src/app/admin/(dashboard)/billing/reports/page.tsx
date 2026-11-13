@@ -62,6 +62,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               {[
                 { l: "Invoiced", v: formatMoney(r.invoiced, c), s: `${r.invoiceCount} invoice${r.invoiceCount === 1 ? "" : "s"}` },
                 { l: "Collected", v: formatMoney(r.collected, c), s: `${r.paymentCount} payment${r.paymentCount === 1 ? "" : "s"}${rate !== null ? ` · ${rate}% of invoiced` : ""}` },
+                ...(r.refunded > 0 ? [{ l: "Refunded", v: `−${formatMoney(r.refunded, c)}`, s: `Net collected ${formatMoney(r.net, c)}`, bad: true }] : []),
                 { l: "Outstanding now", v: formatMoney(r.outstanding, c), s: "All sent, unpaid invoices" },
                 { l: "Overdue now", v: formatMoney(r.overdue, c), s: "Past their due date", bad: r.overdue > 0 },
               ].map((k) => (
@@ -92,6 +93,25 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 </div>
               </div>
             </div>
+
+            {r.outstanding > 0 && (
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <h3 className="text-sm font-semibold">Aging of unpaid invoices <span className="font-normal text-muted-foreground">(as of today)</span></h3>
+                <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                  {[
+                    { l: "Not yet due", v: r.aging.current, tone: "" },
+                    { l: "1 to 30 days late", v: r.aging.d1_30, tone: "text-amber-700" },
+                    { l: "31 to 60 days late", v: r.aging.d31_60, tone: "text-orange-700" },
+                    { l: "Over 60 days late", v: r.aging.d61plus, tone: "text-destructive" },
+                  ].map((a) => (
+                    <div key={a.l} className="rounded-xl bg-secondary/50 p-3">
+                      <p className="text-xs text-muted-foreground">{a.l}</p>
+                      <p className={`mt-0.5 font-display text-lg font-bold tabular-nums ${a.v > 0 ? a.tone : "text-muted-foreground"}`}>{formatMoney(a.v, c)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="rounded-2xl border border-border bg-card p-5">

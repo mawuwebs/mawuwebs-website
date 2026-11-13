@@ -7,6 +7,7 @@ import { PrintButton } from "@/components/billing/print-button";
 import { invoiceInclude, invoiceToView } from "@/lib/billing-queries";
 import { balanceDue, formatMoney, totals } from "@/lib/billing";
 import { providersForCurrency } from "@/lib/payment-config";
+import { PaidNote } from "@/components/billing/paid-note";
 import { PayButtons } from "@/components/billing/pay-buttons";
 
 export const metadata: Metadata = { title: "Invoice", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -29,6 +30,7 @@ export default async function PublicInvoice({ params, searchParams }: { params: 
       <div className="mx-auto mt-6 max-w-3xl space-y-3">
         {sp.paid && invoice.status !== "PAID" && <p role="status" className="rounded-xl border border-border bg-card p-4 text-sm print:hidden">Thank you. We are confirming your payment. Refresh this page in a minute.</p>}
         {providers.length > 0 && <PayButtons token={token} providers={providers} amountLabel={formatMoney(balance, invoice.currency)} />}
+        {invoice.status === "SENT" && balance > 0 && <PaidNote token={token} number={invoice.number} />}
       </div>
     </main>
   );

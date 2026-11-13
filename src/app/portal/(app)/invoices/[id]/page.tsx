@@ -26,7 +26,7 @@ export default async function PortalInvoice({ params }: { params: Promise<{ id: 
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link href="/portal/billing" className="text-sm text-muted-foreground hover:text-foreground">← Quotes and invoices</Link>
-        <PrintButton />
+        <PrintButton pdfHref={`/i/${invoice.token}/pdf`} />
       </div>
       <DocumentView doc={invoiceToView(invoice)} issuer={settings} />
       {providers.length > 0 && <div className="mx-auto max-w-3xl"><PayButtons token={invoice.token} providers={providers} amountLabel={formatMoney(balance, invoice.currency)} /></div>}

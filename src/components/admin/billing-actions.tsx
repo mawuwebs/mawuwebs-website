@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, formatMoney, minorToInput } from "@/lib/billing";
 import {
-  createInvoiceFromQuote, deleteDraft, deletePayment, recordPayment, recordRefund, sendInvoice, sendQuote, voidInvoice,
+  createInvoiceFromQuote, deleteDraft, deletePayment, duplicateDocument, recordPayment, recordRefund, regenerateLink, sendInvoice, sendQuote, voidInvoice,
   type BillingResult,
 } from "@/lib/actions/billing";
 
@@ -38,6 +38,18 @@ function Confirm({ label, confirmLabel, onConfirm, disabled }: { label: string; 
   );
 }
 
+/** Duplicate for every document; replace-link only once a client link exists. */
+function CommonActions({ kind, id, hasLink }: { kind: "quote" | "invoice"; id: string; hasLink: boolean }) {
+  const router = useRouter();
+  const { run, pending } = useRun();
+  return (
+    <>
+      <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => duplicateDocument(kind, id), (r) => router.push(`/admin/billing/${kind}s/${r.id}`))}>Duplicate as draft</Button>
+      {hasLink && <Confirm label="Replace client link" confirmLabel="Confirm: old link stops working" disabled={pending} onConfirm={() => run(() => regenerateLink(kind, id))} />}
+    </>
+  );
+}
+
 export function QuoteActions({ id, status, depositPct, invoiceKinds }: { id: string; status: string; depositPct: number; invoiceKinds: string[] }) {
   const router = useRouter();
   const { run, pending } = useRun();
@@ -60,6 +72,7 @@ export function QuoteActions({ id, status, depositPct, invoiceKinds }: { id: str
       {status === "DRAFT" && (
         <Confirm label="Delete draft" confirmLabel="Confirm: delete" disabled={pending} onConfirm={() => run(() => deleteDraft("quote", id), () => router.push("/admin/billing"))} />
       )}
+      <CommonActions kind="quote" id={id} hasLink={status !== "DRAFT"} />
     </div>
   );
 }
@@ -80,6 +93,7 @@ export function InvoiceActions({ id, status, hasPayments }: { id: string; status
       {(status === "SENT") && !hasPayments && (
         <Confirm label="Void invoice" confirmLabel="Confirm: void" disabled={pending} onConfirm={() => run(() => voidInvoice(id))} />
       )}
+      <CommonActions kind="invoice" id={id} hasLink={status !== "DRAFT"} />
     </div>
   );
 }

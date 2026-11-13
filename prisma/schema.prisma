@@ -656,3 +656,18 @@ model BillingSettings {
   remindersEnabled    Boolean  @default(true)
   updatedAt           DateTime @updatedAt
 }
+
+/// Every payment webhook we receive and what we did with it, so money and books can be reconciled.
+model WebhookEvent {
+  id        String   @id @default(cuid())
+  provider  String
+  eventType String
+  /// recorded | duplicate | ignored | rejected | error | skipped
+  outcome   String
+  detail    String   @default("")
+  reference String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([outcome, createdAt])
+}

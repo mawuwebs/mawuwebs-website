@@ -344,6 +344,34 @@ export async function sendInvoice(id: string): Promise<BillingResult> {
   });
 }
 
+/**
+ * Public "I have paid" note from the invoice link (bank transfer, mobile money). It does NOT record a payment:
+ * money is only recorded once staff confirm it landed. It emails staff and leaves an activity entry.
+ */
+export async function notifyPaymentByToken(token: string, input: { method: string; reference: string; note: string }): Promise<BillingResult> {
+  return guard(async () => {
+    if (typeof token !== "string" || token.length < 16) return fail("Invoice not found.");
+    const method = (PAYMENT_METHODS as readonly string[]).includes(input.method) ? input.method : "other";
+    const reference = String(input.reference ?? "").trim().slice(0, 120);
+    const note = String(input.note ?? "").trim().slice(0, 500);
+    if (reference.length < 3) return fail("Enter the transaction or reference number from your payment.");
+    if (await rateLimited("invoice-paid-note", 5, 10 * 60_000)) return fail("Too many attempts. Wait a few minutes and try again.");
+    const inv = await prisma.invoice.findUnique({ where: { token }, include: { items: true, payments: true, user: { select: { name: true, email: true } } } });
+    if (!inv || inv.status !== "SENT") return fail("This invoice is not open for payment.");
+    const balance = totals(inv.items, inv.taxBp).total - amountPaid(inv.payments);
+    if (balance <= 0) return fail("This invoice has nothing left to pay.");
+    const settings = await getSiteSettings();
+    await logActivity({ userId: null, action: "updated", entityType: "Invoice", entityId: inv.id, message: `${inv.user.name} says they paid ${inv.number} by ${method} (ref ${reference}). Awaiting confirmation` });
+    await sendMail({
+      to: notifyEmail(settings.contactEmail),
+      replyTo: inv.user.email,
+      subject: `Payment claimed: ${inv.number} (${formatMoney(balance, inv.currency)})`,
+      text: `${inv.user.name} <${inv.user.email}> says they paid invoice ${inv.number} (balance ${formatMoney(balance, inv.currency)}).\n\nMethod: ${method}\nReference: ${reference}${note ? `\nNote: ${note}` : ""}\n\nCheck your account, then record the payment:\n${siteUrl()}/admin/billing/invoices/${inv.id}`,
+    });
+    return { success: true, message: "Thank you. We will confirm your payment and update the invoice shortly." };
+  });
+}
+
 const paymentSchema = z.object({
   method: z.enum(PAYMENT_METHODS),
   reference: z.string().trim().max(120).default(""),
@@ -637,5 +665,71 @@ export async function saveBillingSettings(input: z.input<typeof settingsSchema> 
     await logActivity({ userId: user.id, action: "updated", entityType: "BillingSettings", entityId: "main", message: `${user.name ?? "Staff"} updated billing settings` });
     revalidatePath("/admin/billing", "layout");
     return { success: true, message: "Saved." };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Link control and duplication
+// ---------------------------------------------------------------------------
+
+/** Kills the old emailed link and issues a new one. Use it if a link was forwarded or leaked. Drafts have no link yet. */
+export async function regenerateLink(kind: "quote" | "invoice", id: string): Promise<BillingResult> {
+  return guard(async () => {
+    const user = await requireArea("billing");
+    const token = newToken();
+    if (kind === "quote") {
+      const q = await prisma.quote.findUnique({ where: { id }, select: { number: true, status: true, userId: true } });
+      if (!q) return fail("Quote not found.");
+      if (q.status === "DRAFT") return fail("Drafts have no client link yet.");
+      await prisma.quote.update({ where: { id }, data: { token } });
+      await logActivity({ userId: user.id, action: "updated", entityType: "Quote", entityId: id, message: `${user.name ?? "Staff"} replaced the client link for ${q.number}` });
+      revalidateBilling(q.userId);
+    } else {
+      const i = await prisma.invoice.findUnique({ where: { id }, select: { number: true, status: true, userId: true } });
+      if (!i) return fail("Invoice not found.");
+      if (i.status === "DRAFT") return fail("Drafts have no client link yet.");
+      await prisma.invoice.update({ where: { id }, data: { token } });
+      await logActivity({ userId: user.id, action: "updated", entityType: "Invoice", entityId: id, message: `${user.name ?? "Staff"} replaced the client link for ${i.number}` });
+      revalidateBilling(i.userId);
+    }
+    return { success: true, message: "New link created. The old link no longer works. Use Resend email to send the new one.", id };
+  });
+}
+
+/** Copies a quote or invoice into a fresh draft with the same lines. The way to "revise" something already sent. */
+export async function duplicateDocument(kind: "quote" | "invoice", id: string): Promise<BillingResult> {
+  return guard(async () => {
+    const user = await requireArea("billing");
+    if (kind === "quote") {
+      const q = await prisma.quote.findUnique({ where: { id }, include: { items: { orderBy: { position: "asc" } } } });
+      if (!q) return fail("Quote not found.");
+      const copy = await prisma.$transaction(async (tx) =>
+        tx.quote.create({
+          data: {
+            number: await nextNumber(tx, "quote"), token: newToken(), userId: q.userId, projectId: q.projectId, submissionId: q.submissionId,
+            title: q.title, currency: q.currency, taxBp: q.taxBp, notes: q.notes, depositPct: q.depositPct,
+            items: { create: q.items.map((i) => ({ description: i.description, quantity: i.quantity, unitAmount: i.unitAmount, position: i.position })) },
+          },
+        })
+      );
+      await logActivity({ userId: user.id, action: "created", entityType: "Quote", entityId: copy.id, message: `${user.name ?? "Staff"} duplicated quote ${q.number} as ${copy.number}` });
+      revalidateBilling(q.userId);
+      return { success: true, message: `Copied as draft ${copy.number}.`, id: copy.id };
+    }
+    const i = await prisma.invoice.findUnique({ where: { id }, include: { items: { orderBy: { position: "asc" } } } });
+    if (!i) return fail("Invoice not found.");
+    const bs = await getBillingSettings();
+    const copy = await prisma.$transaction(async (tx) =>
+      tx.invoice.create({
+        data: {
+          number: await nextNumber(tx, "invoice"), token: newToken(), userId: i.userId, projectId: i.projectId,
+          title: i.title, currency: i.currency, taxBp: i.taxBp, notes: i.notes, dueDate: new Date(Date.now() + bs.defaultDueDays * 86400_000),
+          items: { create: i.items.map((x) => ({ description: x.description, quantity: x.quantity, unitAmount: x.unitAmount, position: x.position })) },
+        },
+      })
+    );
+    await logActivity({ userId: user.id, action: "created", entityType: "Invoice", entityId: copy.id, message: `${user.name ?? "Staff"} duplicated invoice ${i.number} as ${copy.number}` });
+    revalidateBilling(i.userId);
+    return { success: true, message: `Copied as draft ${copy.number}.`, id: copy.id };
   });
 }

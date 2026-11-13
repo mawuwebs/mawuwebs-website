@@ -6,7 +6,9 @@ import { iso, DAY, type resolveRange } from "@/lib/billing-range";
 export { PERIODS, resolveRange, seriesLabel, type PeriodKey } from "@/lib/billing-range";
 
 export type CurrencyReport = {
-  invoiced: number; collected: number; invoiceCount: number; paymentCount: number; outstanding: number; overdue: number;
+  invoiced: number; collected: number; refunded: number; net: number; invoiceCount: number; paymentCount: number; outstanding: number; overdue: number;
+  /** Unpaid balance of sent invoices by how far past due they are (now). */
+  aging: { current: number; d1_30: number; d31_60: number; d61plus: number };
   series: { label: string; invoiced: number; collected: number }[];
   byMethod: { method: string; amount: number; count: number }[];
   topClients: { name: string; invoiced: number; collected: number }[];
@@ -31,7 +33,8 @@ export async function buildReport(range: ReturnType<typeof resolveRange>) {
 
   const out: Record<string, CurrencyReport> = {};
   const cur = (c: string) => (out[c] ??= {
-    invoiced: 0, collected: 0, invoiceCount: 0, paymentCount: 0, outstanding: 0, overdue: 0,
+    invoiced: 0, collected: 0, refunded: 0, net: 0, invoiceCount: 0, paymentCount: 0, outstanding: 0, overdue: 0,
+    aging: { current: 0, d1_30: 0, d31_60: 0, d61plus: 0 },
     series: labels.map((label) => ({ label, invoiced: 0, collected: 0 })), byMethod: [], topClients: [],
   });
   const clients: Record<string, Map<string, { name: string; invoiced: number; collected: number }>> = {};
@@ -51,6 +54,7 @@ export async function buildReport(range: ReturnType<typeof resolveRange>) {
   const methods: Record<string, Map<string, { amount: number; count: number }>> = {};
   for (const p of payments) {
     const c = p.invoice.currency, r = cur(c);
+    if (p.amount < 0) { r.refunded += -p.amount; continue; }
     r.collected += p.amount; r.paymentCount++;
     const s = r.series.find((x) => x.label === key(p.paidAt)); if (s) s.collected += p.amount;
     client(c, p.invoice.user).collected += p.amount;
@@ -64,9 +68,15 @@ export async function buildReport(range: ReturnType<typeof resolveRange>) {
     if (bal <= 0) continue;
     const r = cur(i.currency);
     r.outstanding += bal;
+    const late = i.dueDate ? Math.floor((+now - +i.dueDate) / 864e5) : 0;
     if (i.dueDate && i.dueDate < now) r.overdue += bal;
+    if (late <= 0) r.aging.current += bal;
+    else if (late <= 30) r.aging.d1_30 += bal;
+    else if (late <= 60) r.aging.d31_60 += bal;
+    else r.aging.d61plus += bal;
   }
   for (const c of Object.keys(out)) {
+    out[c].net = out[c].collected - out[c].refunded;
     out[c].byMethod = [...(methods[c] ?? [])].map(([method, v]) => ({ method, ...v })).sort((a, b) => b.amount - a.amount);
     out[c].topClients = [...(clients[c]?.values() ?? [])].sort((a, b) => b.invoiced + b.collected - (a.invoiced + a.collected)).slice(0, 5);
   }

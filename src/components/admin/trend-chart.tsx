@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/lib/billing";
 import { Area, AreaChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type Point = { label: string; prevLabel?: string; current: number; previous?: number };
@@ -9,11 +10,13 @@ function Tip({
   payload,
   name,
   prevName,
+  fmt,
 }: {
   active?: boolean;
   payload?: { payload: Point }[];
   name: string;
   prevName: string;
+  fmt: (n: number) => string;
 }) {
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
@@ -22,12 +25,12 @@ function Tip({
       <p className="mb-1 font-medium text-foreground">{p.label}</p>
       <p className="flex items-center gap-2 text-muted-foreground">
         <span className="size-2 rounded-full bg-accent" />
-        {name}: <span className="font-medium text-foreground tabular-nums">{p.current}</span>
+        {name}: <span className="font-medium text-foreground tabular-nums">{fmt(p.current)}</span>
       </p>
       {p.previous !== undefined && (
         <p className="mt-0.5 flex items-center gap-2 text-muted-foreground">
           <span className="h-0 w-2 border-t-2 border-dashed border-muted-foreground" />
-          {prevName} ({p.prevLabel}): <span className="font-medium text-foreground tabular-nums">{p.previous}</span>
+          {prevName} ({p.prevLabel}): <span className="font-medium text-foreground tabular-nums">{fmt(p.previous)}</span>
         </p>
       )}
     </div>
@@ -45,6 +48,7 @@ export function TrendChart({
   showPrevious = false,
   height = 240,
   fitY = false,
+  currency,
 }: {
   data: Point[];
   name: string;
@@ -53,7 +57,10 @@ export function TrendChart({
   height?: number;
   /** Zoom the y-axis to the data range; use for cumulative series that never start at zero. */
   fitY?: boolean;
+  /** When set, values are money in minor units of this currency. */
+  currency?: string;
 }) {
+  const fmt = (n: number) => (currency ? formatMoney(n, currency) : String(n));
   const total = data.reduce((a, d) => a + d.current, 0);
   const every = Math.max(0, Math.ceil(data.length / 7) - 1);
   return (
@@ -70,7 +77,7 @@ export function TrendChart({
           </span>
         )}
       </div>
-      <div role="img" aria-label={`${name} over ${data.length} days, ${total} in total`} style={{ height }} className="w-full">
+      <div role="img" aria-label={`${name} over ${data.length} days, ${fmt(total)} in total`} style={{ height }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--border)" />
@@ -82,10 +89,10 @@ export function TrendChart({
               tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
               minTickGap={16}
             />
-            <YAxis allowDecimals={false} domain={fitY ? ["dataMin - 1", "dataMax + 1"] : [0, "auto"]} tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
+            <YAxis width={currency ? 56 : undefined} tickFormatter={currency ? (n: number) => formatMoney(n, currency).replace(/\.00$/, "") : undefined} allowDecimals={false} domain={fitY ? ["dataMin - 1", "dataMax + 1"] : [0, "auto"]} tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
             <Tooltip
               cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1, strokeDasharray: "3 3" }}
-              content={<Tip name={name} prevName={prevName} active={undefined} payload={undefined} />}
+              content={<Tip name={name} prevName={prevName} fmt={fmt} active={undefined} payload={undefined} />}
             />
             {showPrevious && (
               <Line
@@ -126,8 +133,8 @@ export function TrendChart({
               {data.map((d) => (
                 <tr key={d.label} className="border-t border-border">
                   <td className="px-3 py-1">{d.label}</td>
-                  <td className="px-3 py-1 tabular-nums">{d.current}</td>
-                  {showPrevious && <td className="px-3 py-1 tabular-nums">{d.previous}</td>}
+                  <td className="px-3 py-1 tabular-nums">{fmt(d.current)}</td>
+                  {showPrevious && <td className="px-3 py-1 tabular-nums">{d.previous === undefined ? "" : fmt(d.previous)}</td>}
                 </tr>
               ))}
             </tbody>

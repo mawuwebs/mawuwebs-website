@@ -24,6 +24,11 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const isDraft = invoice.status === "DRAFT";
   const { clients, projects } = isDraft ? await editorOptions() : { clients: [], projects: [] };
   const balance = balanceDue(totals(invoice.items, invoice.taxBp).total, invoice.payments);
+  // Older gateway refund rows were logged against the invoice number, so match both.
+  const history = await prisma.activityLog.findMany({
+    where: { entityType: "Invoice", entityId: { in: [invoice.id, invoice.number] } },
+    orderBy: { createdAt: "desc" }, take: 30, include: { user: { select: { name: true } } },
+  });
   return (
     <div className="max-w-4xl space-y-6">
       <div>
@@ -36,7 +41,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
       </div>
       <InvoiceActions id={invoice.id} status={invoice.status} hasPayments={invoice.payments.length > 0} />
       {!isDraft && (
-        <p className="break-all text-sm text-muted-foreground">Client link: <a className="underline underline-offset-2" href={`/i/${invoice.token}`} target="_blank" rel="noopener noreferrer">{siteUrl()}/i/{invoice.token}</a></p>
+        <p className="break-all text-sm text-muted-foreground">Client link: <a className="underline underline-offset-2" href={`/i/${invoice.token}`} target="_blank" rel="noopener noreferrer">{siteUrl()}/i/{invoice.token}</a> · <a className="underline underline-offset-2" href={`/i/${invoice.token}/pdf`} target="_blank" rel="noopener noreferrer">PDF</a></p>
       )}
 
       {isDraft && balance > 0 && (
@@ -91,6 +96,20 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             </section>
           )}
         </>
+      )}
+
+      {history.length > 0 && (
+        <section className="rounded-2xl border border-border bg-card p-5" aria-label="History">
+          <h2 className="mb-3 font-semibold">History</h2>
+          <ol className="space-y-2 text-sm">
+            {history.map((h) => (
+              <li key={h.id} className="flex flex-wrap justify-between gap-x-4 gap-y-0.5">
+                <span>{h.message}</span>
+                <time dateTime={h.createdAt.toISOString()} className="text-xs text-muted-foreground">{h.createdAt.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</time>
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
     </div>
   );

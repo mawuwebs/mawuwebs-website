@@ -54,8 +54,10 @@ export async function GET(request: NextRequest) {
       `${c}`,
       `  Invoiced:    ${formatMoney(r.invoiced, c)} (${r.invoiceCount} invoice${r.invoiceCount === 1 ? "" : "s"})`,
       `  Collected:   ${formatMoney(r.collected, c)} (${r.paymentCount} payment${r.paymentCount === 1 ? "" : "s"})`,
+      ...(r.refunded > 0 ? [`  Refunded:    -${formatMoney(r.refunded, c)} (net ${formatMoney(r.net, c)})`] : []),
       `  Outstanding: ${formatMoney(r.outstanding, c)} (now)`,
       `  Overdue:     ${formatMoney(r.overdue, c)} (now)`,
+      ...(r.outstanding > 0 ? [`  Aging (now): not due ${formatMoney(r.aging.current, c)} | 1-30d ${formatMoney(r.aging.d1_30, c)} | 31-60d ${formatMoney(r.aging.d31_60, c)} | 60d+ ${formatMoney(r.aging.d61plus, c)}`] : []),
       ...r.byMethod.map((m) => `    - ${PAYMENT_METHOD_LABEL[m.method] ?? m.method}: ${formatMoney(m.amount, c)} (${m.count})`),
       "",
     );
