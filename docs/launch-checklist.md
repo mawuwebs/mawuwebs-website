@@ -68,3 +68,9 @@ Paystack covers GHS, NGN and USD. Stripe covers USD, EUR and GBP. Stripe does no
 - `/api/cron/invoice-reminders` (daily) now sends three emails per unpaid invoice: once when the due date is within 3 days, again 3 days after it is overdue, and a final one at 14 days. The "due soon" note is sent once (`preDueReminderAt`). Switch all reminders off in Billing settings.
 - Invoice emails carry a PDF copy. If PDF rendering fails the email still goes out with the link.
 - Clients who pay by mobile money or bank transfer can press "I have paid" on the invoice page. You get an email and a History entry; nothing is marked paid until you record the payment.
+
+## 5. Tests and CI
+
+- `npm run typecheck`, `npm run lint`, `npm test` (unit), then `npm run build && npm run test:e2e` (browser tests of the whole billing flow against a throwaway database). GitHub Actions runs all of these on every push and pull request (`.github/workflows/ci.yml`).
+- First local e2e run needs a browser: `npx playwright install chromium` (or set `E2E_CHROME` to an installed Chromium).
+- On the server, a deploy must run `npm ci` (its `postinstall` generates the Prisma client) and `npm run db:deploy` (applies migrations) before `npm run build`.
