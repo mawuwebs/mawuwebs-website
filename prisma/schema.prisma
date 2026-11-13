@@ -64,6 +64,7 @@ model User {
   projects      ClientProject[]
   quotes        Quote[]
   invoices      Invoice[]
+  recurring     RecurringInvoice[]
   enquiries     ContactSubmission[]
 }
 
@@ -603,4 +604,33 @@ model Payment {
 model Sequence {
   key   String @id
   value Int    @default(0)
+}
+
+/// A schedule that drafts (and optionally emails) an invoice every N months, e.g. a managed IT plan.
+model RecurringInvoice {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  description    String
+  unitAmount     Int
+  currency       String    @default("GHS")
+  taxBp          Int       @default(0)
+  notes          String    @default("")
+  intervalMonths Int       @default(1)
+  dueDays        Int       @default(14)
+  nextRunAt      DateTime
+  lastRunAt      DateTime?
+  autoSend       Boolean   @default(false)
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+
+  @@index([active, nextRunAt])
+}
+
+/// Payment gateway credentials entered in the admin UI. `value` is AES-256-GCM ciphertext (see src/lib/secrets.ts), never plain text.
+model PaymentSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

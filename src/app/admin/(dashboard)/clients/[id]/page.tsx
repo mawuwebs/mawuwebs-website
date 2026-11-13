@@ -8,6 +8,7 @@ import { can } from "@/lib/permissions";
 import { fmtDate, ticketRef, TICKET_STATUS_LABEL } from "@/lib/portal";
 import { balanceDue, formatMoney, isOverdue, milestonesToText, parseMilestones, totals, INVOICE_STATUS_LABEL, PROJECT_STATUS_LABEL, QUOTE_STATUS_LABEL } from "@/lib/billing";
 import { buttonVariants } from "@/components/ui/button";
+import { RecurringForm, RecurringRowActions } from "@/components/admin/recurring-forms";
 import { ClientProjectForm, EMPTY_PROJECT } from "@/components/admin/client-project-form";
 import { AddAssetForm, AddDocumentForm, ClientActions, RemoveButton } from "@/components/admin/client-forms";
 
@@ -26,6 +27,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       projects: { orderBy: { createdAt: "desc" } },
       quotes: { orderBy: { createdAt: "desc" }, include: { items: true } },
       invoices: { orderBy: { createdAt: "desc" }, include: { items: true, payments: true } },
+      recurring: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!client) notFound();
@@ -80,6 +82,26 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               })}
               {client.quotes.map((q) => (
                 <li key={q.id}><Link href={`/admin/billing/quotes/${q.id}`} className="flex flex-wrap justify-between gap-2 p-3 text-sm hover:bg-secondary/60"><span>{q.number} · {q.title}</span><span className="text-muted-foreground">{formatMoney(totals(q.items, q.taxBp).total, q.currency)} · {QUOTE_STATUS_LABEL[q.status]}</span></Link></li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {showBilling && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">Recurring billing</h2>
+          <details className="rounded-2xl border border-border bg-card p-5">
+            <summary className="cursor-pointer text-sm font-medium">Set up recurring billing (managed plans)</summary>
+            <div className="mt-4"><RecurringForm clientId={client.id} /></div>
+          </details>
+          {client.recurring.length > 0 && (
+            <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
+              {client.recurring.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
+                  <span>{r.title} <span className="text-muted-foreground">· {formatMoney(r.unitAmount, r.currency)} every {r.intervalMonths === 1 ? "month" : `${r.intervalMonths} months`} · {r.active ? `next ${fmtDate(r.nextRunAt)}` : "paused"}{r.autoSend ? " · auto-email" : " · draft"}</span></span>
+                  <RecurringRowActions id={r.id} clientId={client.id} active={r.active} />
+                </li>
               ))}
             </ul>
           )}

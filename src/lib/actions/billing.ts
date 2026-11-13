@@ -9,8 +9,12 @@ import { requireClientAction } from "@/lib/portal";
 import { logActivity } from "@/lib/activity-log";
 import { sendMail, notifyEmail, siteUrl } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
+import { rateLimited } from "@/lib/rate-limit";
+import { createCheckoutUrl } from "@/lib/gateway";
+import { deliverInvoice, nextNumber } from "@/lib/invoicing";
+import { providersForCurrency } from "@/lib/payment-config";
 import {
-  CURRENCIES, PAYMENT_METHODS, formatDocNumber, isQuoteExpired, formatMoney, milestonesFromText, parseMoney, parseTaxPercent, totals, amountPaid,
+  CURRENCIES, PAYMENT_METHODS, isQuoteExpired, formatMoney, milestonesFromText, parseMoney, parseTaxPercent, totals, amountPaid,
 } from "@/lib/billing";
 
 export type BillingResult = { success: boolean; message: string; id?: string };
@@ -26,17 +30,6 @@ async function guard(fn: () => Promise<BillingResult>): Promise<BillingResult> {
 }
 
 const newToken = () => randomBytes(24).toString("base64url");
-
-/** Atomic per-year counter: the upsert increments and returns in one statement, so two saves never share a number. */
-async function nextNumber(tx: Pick<typeof prisma, "sequence">, kind: "invoice" | "quote") {
-  const year = new Date().getFullYear();
-  const row = await tx.sequence.upsert({
-    where: { key: `${kind}-${year}` },
-    create: { key: `${kind}-${year}`, value: 1 },
-    update: { value: { increment: 1 } },
-  });
-  return formatDocNumber(kind === "invoice" ? "INV" : "QUO", year, row.value);
-}
 
 function parseDate(s: string): Date | null | "bad" {
   if (!s) return null;
@@ -314,23 +307,11 @@ export async function saveInvoice(id: string | null, input: DocInput): Promise<B
 export async function sendInvoice(id: string): Promise<BillingResult> {
   return guard(async () => {
     const user = await requireArea("billing");
-    const inv = await prisma.invoice.findUnique({ where: { id }, include: { items: true, payments: true, user: { select: { name: true, email: true } } } });
-    if (!inv) return fail("Invoice not found.");
-    if (inv.status === "PAID" || inv.status === "VOID") return fail(`This invoice is ${inv.status.toLowerCase()}.`);
-    const t = totals(inv.items, inv.taxBp);
-    if (t.total <= 0) return fail("The invoice total must be more than zero.");
-    const settings = await getSiteSettings();
-    const link = `${siteUrl()}/i/${inv.token}`;
-    const emailed = await sendMail({
-      to: inv.user.email,
-      replyTo: notifyEmail(settings.contactEmail),
-      subject: `Invoice ${inv.number} from ${settings.siteName}`,
-      text: `Hi ${inv.user.name.split(" ")[0]},\n\nInvoice ${inv.number} for ${inv.title}: ${formatMoney(t.total, inv.currency)}${inv.dueDate ? `, due ${inv.dueDate.toLocaleDateString("en-GB")}` : ""}.\n\nView or print it here:\n${link}\n\n${settings.siteName}`,
-    });
-    await prisma.invoice.update({ where: { id }, data: { status: "SENT", sentAt: new Date() } });
-    await logActivity({ userId: user.id, action: "updated", entityType: "Invoice", entityId: id, message: `${user.name ?? "Staff"} sent invoice ${inv.number}` });
-    revalidateBilling(inv.userId);
-    return { success: true, message: emailed ? "Invoice emailed to the client." : `Marked as sent. Email is not configured or failed, so share this link yourself: ${link}`, id };
+    const r = await deliverInvoice(id);
+    if (!r.ok) return fail(r.message);
+    await logActivity({ userId: user.id, action: "updated", entityType: "Invoice", entityId: id, message: `${user.name ?? "Staff"} sent invoice ${r.number}` });
+    revalidateBilling(r.userId);
+    return { success: true, message: r.emailed ? "Invoice emailed to the client." : `Marked as sent. Email is not configured or failed, so share this link yourself: ${r.link}`, id };
   });
 }
 
@@ -485,5 +466,82 @@ export async function deleteClientProject(id: string, clientId: string): Promise
     revalidateBilling(clientId);
     revalidatePath("/portal/projects");
     return { success: true, message: "Project removed." };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Online payment
+// ---------------------------------------------------------------------------
+
+/** Public (the invoice token is the credential). Returns the gateway page to send the payer to. */
+export async function startCheckout(token: string, provider: "paystack" | "stripe"): Promise<{ success: boolean; message: string; url?: string }> {
+  try {
+    if (typeof token !== "string" || token.length < 16 || (provider !== "paystack" && provider !== "stripe")) return fail("Invoice not found.");
+    if (await rateLimited("checkout", 10, 60_000)) return fail("Too many attempts. Wait a minute and try again.");
+    const inv = await prisma.invoice.findUnique({ where: { token }, select: { currency: true } });
+    if (!inv) return fail("Invoice not found.");
+    if (!(await providersForCurrency(inv.currency)).includes(provider)) return fail("That payment method is not available for this invoice.");
+    const r = await createCheckoutUrl(token, provider);
+    return "url" in r ? { success: true, message: "Redirecting…", url: r.url } : fail(r.error);
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Something went wrong.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Recurring invoices (managed plans)
+// ---------------------------------------------------------------------------
+
+const recurringSchema = z.object({
+  title: z.string().trim().min(2, "Give it a title.").max(140),
+  description: z.string().trim().min(2, "Describe what is billed.").max(300),
+  currency: z.enum(CURRENCIES),
+  intervalMonths: z.coerce.number().int().refine((n) => [1, 2, 3, 6, 12].includes(n), "Choose how often to bill."),
+  dueDays: z.coerce.number().int().min(0).max(120),
+  notes: z.string().trim().max(4000).default(""),
+  firstRun: z.string().min(1, "Choose the first billing date."),
+});
+
+export async function saveRecurring(
+  clientId: string,
+  input: { title: string; description: string; amount: string; currency: string; taxPercent: string; intervalMonths: string; dueDays: string; notes: string; firstRun: string; autoSend: boolean }
+): Promise<BillingResult> {
+  return guard(async () => {
+    const user = await requireArea("billing");
+    const client = await prisma.user.findFirst({ where: { id: clientId, role: "CLIENT" }, select: { id: true } });
+    if (!client) return fail("Client not found.");
+    const parsed = recurringSchema.safeParse(input);
+    if (!parsed.success) return fail(parsed.error.issues[0].message);
+    const unitAmount = parseMoney(input.amount);
+    if (unitAmount === null || unitAmount === 0) return fail("Enter an amount like 450 or 450.50.");
+    const taxBp = parseTaxPercent(input.taxPercent);
+    if (taxBp === null) return fail("Tax must be a percentage between 0 and 100.");
+    const first = parseDate(parsed.data.firstRun);
+    if (!first || first === "bad") return fail("Enter a valid first billing date.");
+    const { firstRun: _firstRun, ...rest } = parsed.data;
+    void _firstRun;
+    const row = await prisma.recurringInvoice.create({ data: { ...rest, unitAmount, taxBp, nextRunAt: first, autoSend: input.autoSend, userId: clientId } });
+    await logActivity({ userId: user.id, action: "created", entityType: "RecurringInvoice", entityId: row.id, message: `${user.name ?? "Staff"} set up recurring billing "${row.title}"` });
+    revalidateBilling(clientId);
+    return { success: true, message: "Recurring billing set up.", id: row.id };
+  });
+}
+
+export async function setRecurringActive(id: string, clientId: string, active: boolean): Promise<BillingResult> {
+  return guard(async () => {
+    await requireArea("billing");
+    const res = await prisma.recurringInvoice.updateMany({ where: { id, userId: clientId }, data: { active } });
+    if (!res.count) return fail("Not found.");
+    revalidateBilling(clientId);
+    return { success: true, message: active ? "Resumed." : "Paused." };
+  });
+}
+
+export async function deleteRecurring(id: string, clientId: string): Promise<BillingResult> {
+  return guard(async () => {
+    await requireArea("billing");
+    await prisma.recurringInvoice.deleteMany({ where: { id, userId: clientId } });
+    revalidateBilling(clientId);
+    return { success: true, message: "Removed. Invoices already created are untouched." };
   });
 }

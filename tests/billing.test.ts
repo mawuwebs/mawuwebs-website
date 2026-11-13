@@ -57,3 +57,63 @@ test("permissions: billing is limited to admin and editor", () => {
   assert.equal(can("CONTENT", "billing"), false);
   assert.equal(can("CLIENT", "billing"), false);
 });
+
+import { createHmac } from "node:crypto";
+import { providersFor, verifyPaystackSignature, verifyStripeSignature } from "../src/lib/payments-verify";
+
+test("paystack signature: valid passes, tampered body or wrong secret fails", () => {
+  const body = '{"event":"charge.success"}';
+  const sig = createHmac("sha512", "sk_test").update(body).digest("hex");
+  assert.ok(verifyPaystackSignature(body, sig, "sk_test"));
+  assert.equal(verifyPaystackSignature(body + " ", sig, "sk_test"), false);
+  assert.equal(verifyPaystackSignature(body, sig, "other"), false);
+  assert.equal(verifyPaystackSignature(body, null, "sk_test"), false);
+  assert.equal(verifyPaystackSignature(body, "short", "sk_test"), false);
+});
+
+test("stripe signature: valid passes; stale, tampered and malformed fail", () => {
+  const body = '{"type":"checkout.session.completed"}';
+  const now = 1_800_000_000_000;
+  const t = String(now / 1000);
+  const v1 = createHmac("sha256", "whsec").update(`${t}.${body}`).digest("hex");
+  assert.ok(verifyStripeSignature(body, `t=${t},v1=${v1}`, "whsec", now));
+  assert.ok(verifyStripeSignature(body, `t=${t},v1=bad,v1=${v1}`, "whsec", now));
+  assert.equal(verifyStripeSignature(body, `t=${t},v1=${v1}`, "whsec", now + 301_000), false);
+  assert.equal(verifyStripeSignature(body + "x", `t=${t},v1=${v1}`, "whsec", now), false);
+  assert.equal(verifyStripeSignature(body, "garbage", "whsec", now), false);
+  assert.equal(verifyStripeSignature(body, null, "whsec", now), false);
+});
+
+test("providersFor: needs a key and a supported currency", () => {
+  assert.deepEqual(providersFor("GHS", {}), []);
+  assert.deepEqual(providersFor("GHS", { PAYSTACK_SECRET_KEY: "k", STRIPE_SECRET_KEY: "k" }), ["paystack"]);
+  assert.deepEqual(providersFor("USD", { PAYSTACK_SECRET_KEY: "k", STRIPE_SECRET_KEY: "k" }), ["paystack", "stripe"]);
+  assert.deepEqual(providersFor("EUR", { PAYSTACK_SECRET_KEY: "k", STRIPE_SECRET_KEY: "k" }), ["stripe"]);
+});
+
+import { decryptSecret, encryptSecret } from "../src/lib/secrets";
+import { KEY_PATTERN, keyMode } from "../src/lib/payments-verify";
+
+test("secrets: round-trips, hides the plaintext, fails closed on wrong secret or tampering", () => {
+  const enc = encryptSecret("sk_test_abcdef1234567890", "auth-secret-1");
+  assert.ok(!enc.includes("sk_test"));
+  assert.equal(decryptSecret(enc, "auth-secret-1"), "sk_test_abcdef1234567890");
+  assert.equal(decryptSecret(enc, "auth-secret-2"), null);
+  assert.equal(decryptSecret(enc.slice(0, -2) + "xx", "auth-secret-1"), null);
+  assert.equal(decryptSecret("garbage", "auth-secret-1"), null);
+  assert.notEqual(encryptSecret("same", "k"), encryptSecret("same", "k")); // random IV
+  assert.throws(() => encryptSecret("x", ""));
+});
+
+test("key patterns accept real-looking keys and reject mix-ups", () => {
+  assert.ok(KEY_PATTERN.paystack.test("sk_test_abcdef1234567890"));
+  assert.equal(KEY_PATTERN.paystack.test("pk_test_abcdef1234567890"), false); // public key pasted by mistake
+  assert.ok(KEY_PATTERN.stripe.test("sk_live_abcdef1234567890"));
+  assert.ok(KEY_PATTERN.stripe.test("rk_test_abcdef1234567890"));
+  assert.equal(KEY_PATTERN.stripe.test("pk_live_abcdef1234567890"), false);
+  assert.ok(KEY_PATTERN.stripeWebhook.test("whsec_abcdef1234567890"));
+  assert.equal(KEY_PATTERN.stripeWebhook.test("sk_test_abcdef1234567890"), false);
+  assert.equal(keyMode("sk_test_x"), "test");
+  assert.equal(keyMode("sk_live_x"), "live");
+  assert.equal(keyMode(null), null);
+});

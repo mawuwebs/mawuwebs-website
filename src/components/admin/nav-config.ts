@@ -21,6 +21,7 @@ import {
   LifeBuoy,
   ClipboardCheck,
   Receipt,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 import type { Area } from "@/lib/permissions";
@@ -75,6 +76,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Site Settings", href: "/admin/settings", icon: Settings, area: "settings" },
       { label: "Forms & estimates", href: "/admin/forms", icon: SlidersHorizontal, adminOnly: true },
+      { label: "Payments", href: "/admin/payments", icon: CreditCard, adminOnly: true },
       { label: "Users", href: "/admin/users", icon: Users, adminOnly: true },
       { label: "Activity Log", href: "/admin/activity", icon: History, area: "activity" },
     ],

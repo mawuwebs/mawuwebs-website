@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:seed": "tsx --env-file=.env prisma/seed.ts",
     "db:seed-consulting": "tsx --env-file=.env scripts/seed-it-consulting.ts",
+    "db:backup": "tsx --env-file=.env scripts/backup-db.ts",
     "db:studio": "prisma studio",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
