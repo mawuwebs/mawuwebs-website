@@ -103,7 +103,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-border bg-card">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-secondary/40 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="p-3 font-medium">Number</th><th className="p-3 font-medium">Client</th><th className="p-3 text-right font-medium">Total</th><th className="p-3 text-right font-medium">Balance</th><th className="p-3 font-medium">Due</th><th className="p-3 font-medium">Status</th></tr></thead>
+              <thead className="border-b border-border bg-secondary/40 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="p-3 font-medium">Number</th><th className="p-3 font-medium">Client</th><th className="p-3 text-right font-medium">Total</th><th className="p-3 text-right font-medium">Balance</th><th className="p-3 font-medium">Due</th><th className="p-3 font-medium"><span className="sr-only">Actions</span></th><th className="p-3 font-medium">Status</th></tr></thead>
               <tbody className="divide-y divide-border">
                 {shown.map(({ i, total, bal, overdue }) => (
                   <tr key={i.id} className="transition-colors hover:bg-secondary/40">
@@ -112,7 +112,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                     <td className="p-3 text-right tabular-nums">{formatMoney(total, i.currency)}</td>
                     <td className="p-3 text-right font-medium tabular-nums">{bal ? formatMoney(bal, i.currency) : <span className="font-normal text-muted-foreground">—</span>}</td>
                     <td className={`p-3 ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}>{i.dueDate ? fmtDate(i.dueDate) : "—"}</td>
-                    <td className="p-3"><Badge variant="outline" className={overdue ? "border-destructive/40 text-destructive" : i.status === "PAID" ? "border-success/30 bg-success/10 text-success" : ""}>{overdue ? "Overdue" : INVOICE_STATUS_LABEL[i.status]}</Badge></td>
+                    <td className="p-3 text-right">{i.status !== "PAID" && i.status !== "VOID" && (i.status === "DRAFT" || bal > 0) && <Link href={`/admin/billing/invoices/${i.id}#record-payment`} className="text-xs underline underline-offset-2">Record payment</Link>}</td>
+                      <td className="p-3"><Badge variant="outline" className={overdue ? "border-destructive/40 text-destructive" : i.status === "PAID" ? "border-success/30 bg-success/10 text-success" : ""}>{overdue ? "Overdue" : INVOICE_STATUS_LABEL[i.status]}</Badge></td>
                   </tr>
                 ))}
               </tbody>

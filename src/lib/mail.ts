@@ -34,6 +34,7 @@ export async function sendMail(opts: {
   subject: string;
   text: string;
   replyTo?: string;
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
 }): Promise<boolean> {
   if (!mailConfigured()) {
     console.info(`[mail] SMTP not configured, skipped: "${opts.subject}"`);
@@ -46,6 +47,7 @@ export async function sendMail(opts: {
       replyTo: opts.replyTo,
       subject: opts.subject,
       text: opts.text,
+      attachments: opts.attachments,
       html: `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(opts.text).replace(
         /(https?:\/\/[^\s<]+)/g,
         '<a href="$1">$1</a>'

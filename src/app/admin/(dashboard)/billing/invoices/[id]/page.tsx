@@ -39,20 +39,34 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         <p className="break-all text-sm text-muted-foreground">Client link: <a className="underline underline-offset-2" href={`/i/${invoice.token}`} target="_blank" rel="noopener noreferrer">{siteUrl()}/i/{invoice.token}</a></p>
       )}
 
+      {isDraft && balance > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Client already paid? <a href="#record-payment" className="underline underline-offset-2">Record the payment</a> below. The invoice is then issued automatically (no email is sent).
+        </p>
+      )}
       {isDraft ? (
-        <DocumentEditor
-          kind="invoice" id={invoice.id} clients={clients} projects={projects}
-          initial={{
-            clientId: invoice.userId, projectId: invoice.projectId ?? "", title: invoice.title, currency: invoice.currency, taxPercent: bpToPercent(invoice.taxBp), notes: invoice.notes,
-            date: invoice.dueDate?.toISOString().slice(0, 10) ?? "", depositPercent: "",
-            items: invoice.items.map((i) => ({ description: i.description, quantity: String(i.quantity), unit: minorToInput(i.unitAmount) })),
-          }}
-        />
+        <>
+          <DocumentEditor
+            kind="invoice" id={invoice.id} clients={clients} projects={projects}
+            initial={{
+              clientId: invoice.userId, projectId: invoice.projectId ?? "", title: invoice.title, currency: invoice.currency, taxPercent: bpToPercent(invoice.taxBp), notes: invoice.notes,
+              date: invoice.dueDate?.toISOString().slice(0, 10) ?? "", depositPercent: "",
+              items: invoice.items.map((i) => ({ description: i.description, quantity: String(i.quantity), unit: minorToInput(i.unitAmount) })),
+            }}
+          />
+          {balance > 0 && (
+            <section id="record-payment" className="scroll-mt-20 rounded-2xl border border-border bg-card p-5">
+              <h2 className="mb-1 font-semibold">Record a payment</h2>
+              <p className="mb-3 text-sm text-muted-foreground">Save any edits above first. Recording a payment issues this invoice, after which it can no longer be edited.</p>
+              <PaymentForm key={balance} invoiceId={invoice.id} currency={invoice.currency} balance={balance} />
+            </section>
+          )}
+        </>
       ) : (
         <>
           <DocumentView doc={invoiceToView(invoice)} issuer={settings} />
           {invoice.status === "SENT" && balance > 0 && (
-            <section className="rounded-2xl border border-border bg-card p-5">
+            <section id="record-payment" className="scroll-mt-20 rounded-2xl border border-border bg-card p-5">
               <h2 className="mb-3 font-semibold">Record a payment</h2>
               <PaymentForm key={balance} invoiceId={invoice.id} currency={invoice.currency} balance={balance} />
             </section>

@@ -369,13 +369,16 @@ export async function recordPayment(
     const outcome: Paid | BillingResult = await prisma.$transaction(async (tx): Promise<Paid | BillingResult> => {
       const inv = await tx.invoice.findUnique({ where: { id: invoiceId }, include: { items: true, payments: true, user: { select: { name: true, email: true } } } });
       if (!inv) return fail("Invoice not found.");
-      if (inv.status !== "SENT") return fail(inv.status === "DRAFT" ? "Send the invoice before recording a payment." : `This invoice is ${inv.status.toLowerCase()}.`);
+      if (inv.status !== "SENT" && inv.status !== "DRAFT") return fail(`This invoice is ${inv.status.toLowerCase()}.`);
       const total = totals(inv.items, inv.taxBp).total;
+      if (total <= 0) return fail("The invoice total must be more than zero.");
       const due = total - amountPaid(inv.payments);
       if (amount > due) return fail(`That is more than the balance due (${formatMoney(due, inv.currency)}).`);
       await tx.payment.create({ data: { invoiceId, amount, method: parsed.data.method, reference: parsed.data.reference, note: parsed.data.note, paidAt: paidAt ?? new Date() } });
       const settled = amount === due;
-      if (settled) await tx.invoice.update({ where: { id: invoiceId }, data: { status: "PAID", paidAt: paidAt ?? new Date() } });
+      // Taking a payment on a draft issues it (without an email) so the record is final and the payment has an invoice to belong to.
+      if (settled) await tx.invoice.update({ where: { id: invoiceId }, data: { status: "PAID", paidAt: paidAt ?? new Date(), ...(inv.status === "DRAFT" ? { sentAt: new Date() } : {}) } });
+      else if (inv.status === "DRAFT") await tx.invoice.update({ where: { id: invoiceId }, data: { status: "SENT", sentAt: new Date() } });
       return { ok: true, inv, settled };
     });
     if (!("ok" in outcome)) return outcome;

@@ -2,6 +2,9 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { sendMail, notifyEmail, siteUrl } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
+import { getBillingSettings } from "@/lib/billing-settings";
+import { invoiceInclude, invoiceToView } from "@/lib/billing-queries";
+import { renderDocPdf } from "@/lib/doc-pdf";
 import { formatDocNumber, formatMoney, totals } from "@/lib/billing";
 
 /** Atomic per-year counter: the upsert increments and returns in one statement, so two saves never share a number. */
@@ -26,11 +29,23 @@ export async function deliverInvoice(id: string): Promise<DeliverResult> {
   if (t.total <= 0) return { ok: false, message: "The invoice total must be more than zero." };
   const settings = await getSiteSettings();
   const link = `${siteUrl()}/i/${inv.token}`;
+  // Attach a PDF copy. If rendering fails the email still goes out with the link.
+  let attachments: { filename: string; content: Buffer; contentType: string }[] | undefined;
+  try {
+    const full = await prisma.invoice.findUnique({ where: { id }, include: invoiceInclude });
+    if (full) {
+      const bytes = await renderDocPdf(invoiceToView({ ...full, status: "SENT" }), settings, await getBillingSettings());
+      attachments = [{ filename: `${inv.number}.pdf`, content: Buffer.from(bytes), contentType: "application/pdf" }];
+    }
+  } catch (err) {
+    console.error("[invoice] pdf attach failed", err);
+  }
   const emailed = await sendMail({
+    attachments,
     to: inv.user.email,
     replyTo: notifyEmail(settings.contactEmail),
     subject: `Invoice ${inv.number} from ${settings.siteName}`,
-    text: `Hi ${inv.user.name.split(" ")[0]},\n\nInvoice ${inv.number} for ${inv.title}: ${formatMoney(t.total, inv.currency)}${inv.dueDate ? `, due ${inv.dueDate.toLocaleDateString("en-GB")}` : ""}.\n\nView, print or pay it here:\n${link}\n\n${settings.siteName}`,
+    text: `Hi ${inv.user.name.split(" ")[0]},\n\nInvoice ${inv.number} for ${inv.title}: ${formatMoney(t.total, inv.currency)}${inv.dueDate ? `, due ${inv.dueDate.toLocaleDateString("en-GB")}` : ""}.\n\n${attachments ? "A PDF copy is attached. " : ""}View, print or pay it here:\n${link}\n\n${settings.siteName}`,
   });
   await prisma.invoice.update({ where: { id }, data: { status: "SENT", sentAt: new Date() } });
   return { ok: true, emailed, link, number: inv.number, userId: inv.userId };

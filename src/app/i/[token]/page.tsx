@@ -24,7 +24,7 @@ export default async function PublicInvoice({ params, searchParams }: { params: 
   const providers = invoice.status === "SENT" && balance > 0 ? await providersForCurrency(invoice.currency) : [];
   return (
     <main className="min-h-dvh bg-secondary/40 px-4 py-8 print:bg-white print:p-0">
-      <div className="mx-auto mb-4 flex max-w-3xl justify-end print:hidden"><PrintButton /></div>
+      <div className="mx-auto mb-4 flex max-w-3xl justify-end print:hidden"><PrintButton pdfHref={`/i/${token}/pdf`} /></div>
       <DocumentView doc={invoiceToView(invoice)} issuer={settings} />
       <div className="mx-auto mt-6 max-w-3xl space-y-3">
         {sp.paid && invoice.status !== "PAID" && <p role="status" className="rounded-xl border border-border bg-card p-4 text-sm print:hidden">Thank you. We are confirming your payment. Refresh this page in a minute.</p>}

@@ -8,7 +8,8 @@ import { getBillingSettings } from "@/lib/billing-settings";
 import { balanceDue, formatMoney, reminderStage, totals } from "@/lib/billing";
 
 /**
- * Emails clients about overdue invoices: a first reminder 3 days after the due date and a final one at 14 days.
+ * Emails clients about invoices: a "due soon" note up to 3 days before the due date, a first overdue reminder 3 days
+ * after the due date and a final one at 14 days.
  * Run daily:  curl -H "Authorization: Bearer $CRON_SECRET" https://yourdomain.com/api/cron/invoice-reminders
  * Each stage is claimed with a conditional update before sending, so overlapping runs never double-send.
  * Nothing is claimed while email is not configured, so no reminder is silently used up. Disabled (404) until CRON_SECRET is set.
@@ -31,6 +32,32 @@ export async function GET(request: NextRequest) {
   });
   const settings = await getSiteSettings();
   let sent = 0;
+
+  // "Due soon": once, when the due date is within the next 3 days.
+  const soon = await prisma.invoice.findMany({
+    where: { status: "SENT", preDueReminderAt: null, dueDate: { gte: now, lt: new Date(now.getTime() + 3 * 86400_000) }, user: { disabledAt: null } },
+    include: { items: true, payments: true, user: { select: { name: true, email: true } } },
+  });
+  let soonSent = 0;
+  for (const inv of soon) {
+    const balance = balanceDue(totals(inv.items, inv.taxBp).total, inv.payments);
+    if (balance <= 0) continue;
+    const claim = await prisma.invoice.updateMany({ where: { id: inv.id, status: "SENT", preDueReminderAt: null }, data: { preDueReminderAt: now } });
+    if (!claim.count) continue;
+    const ok = await sendMail({
+      to: inv.user.email,
+      replyTo: notifyEmail(settings.contactEmail),
+      subject: `Invoice ${inv.number} is due on ${inv.dueDate!.toLocaleDateString("en-GB")}`,
+      text: `Hi ${inv.user.name.split(" ")[0]},\n\nA quick heads-up that invoice ${inv.number} (${inv.title}) is due on ${inv.dueDate!.toLocaleDateString("en-GB")}. The balance is ${formatMoney(balance, inv.currency)}.\n\nView and pay it here:\n${siteUrl()}/i/${inv.token}\n\nIf you have already paid, thank you, and please ignore this message.\n\n${settings.siteName}`,
+    });
+    if (!ok) {
+      await prisma.invoice.updateMany({ where: { id: inv.id }, data: { preDueReminderAt: null } });
+      continue;
+    }
+    soonSent++;
+    await logActivity({ userId: null, action: "updated", entityType: "Invoice", entityId: inv.id, message: `Due-soon reminder sent for ${inv.number}` });
+  }
+
   for (const inv of candidates) {
     const balance = balanceDue(totals(inv.items, inv.taxBp).total, inv.payments);
     const stage = reminderStage(inv, balance, now);
@@ -55,5 +82,5 @@ export async function GET(request: NextRequest) {
     sent++;
     await logActivity({ userId: null, action: "updated", entityType: "Invoice", entityId: inv.id, message: `Overdue reminder ${stage} sent for ${inv.number}` });
   }
-  return NextResponse.json({ candidates: candidates.length, sent });
+  return NextResponse.json({ candidates: candidates.length, sent, dueSoon: soonSent });
 }

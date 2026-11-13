@@ -23,7 +23,7 @@ export default async function PublicQuote({ params }: { params: Promise<{ token:
   const expired = isQuoteExpired(quote.validUntil);
   return (
     <main className="min-h-dvh bg-secondary/40 px-4 py-8 print:bg-white print:p-0">
-      <div className="mx-auto mb-4 flex max-w-3xl justify-end print:hidden"><PrintButton /></div>
+      <div className="mx-auto mb-4 flex max-w-3xl justify-end print:hidden"><PrintButton pdfHref={`/q/${token}/pdf`} /></div>
       <DocumentView doc={quoteToView(quote)} issuer={settings} />
       <div className="mx-auto mt-6 max-w-3xl">
         {quote.status === "SENT" && !expired && <QuoteResponse token={token} defaultName={quote.user.name} />}
