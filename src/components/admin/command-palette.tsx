@@ -18,6 +18,9 @@ const CREATE: Command[] = [
   { id: "c-page", label: "New page", hint: "Create", href: "/admin/pages/new", create: true, area: "content" },
   { id: "c-testimonial", label: "New testimonial", hint: "Create", href: "/admin/testimonials/new", create: true, area: "content" },
   { id: "c-faq", label: "New FAQ", hint: "Create", href: "/admin/faqs/new", create: true, area: "content" },
+  { id: "c-invoice", label: "New invoice", hint: "Create", href: "/admin/billing/invoices/new", create: true, area: "billing" },
+  { id: "c-quote", label: "New quote", hint: "Create", href: "/admin/billing/quotes/new", create: true, area: "billing" },
+  { id: "c-client", label: "New client", hint: "Create", href: "/admin/clients", create: true, area: "orders" },
   { id: "c-newsletter", label: "Send a newsletter", hint: "Create", href: "/admin/newsletter/send", create: true, area: "newsletter" },
 ];
 

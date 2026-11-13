@@ -89,6 +89,9 @@ export function Navbar({
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
+          <Link href="/portal/login" className="rounded-md px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:text-accent">
+            Client login
+          </Link>
           <SearchDialog />
           <ThemeToggle />
           <Button render={<Link href="/start-a-project" />} size="lg">
@@ -133,6 +136,16 @@ export function Navbar({
                     {link.label}
                   </SheetClose>
                 ))}
+                <SheetClose
+                  render={
+                    <Link
+                      href="/portal/login"
+                      className="rounded-md px-3 py-3 text-base font-medium hover:bg-muted"
+                    />
+                  }
+                >
+                  Client login
+                </SheetClose>
                 <SheetClose
                   render={
                     <Link

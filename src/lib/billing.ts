@@ -156,6 +156,21 @@ export function reminderStage(
   return null;
 }
 
+/**
+ * How an open invoice should show on the dashboard, and which reminder the next cron run sends for it.
+ * `soon` mirrors the cron's "due soon" window (due within 3 days, not yet sent); `late` uses reminderStage.
+ */
+export function invoiceFlags(
+  inv: { status: string; dueDate: Date | null; reminderCount: number; preDueReminderAt: Date | null },
+  balance: number,
+  now = new Date()
+) {
+  const overdue = isOverdue(inv, balance, now);
+  const inWeek = !overdue && inv.status === "SENT" && balance > 0 && !!inv.dueDate && inv.dueDate.getTime() < now.getTime() + 7 * 86400_000;
+  const soon = inWeek && !inv.preDueReminderAt && inv.dueDate!.getTime() < now.getTime() + 3 * 86400_000;
+  return { overdue, dueSoon: inWeek, soonReminder: soon, lateReminder: reminderStage(inv, balance, now) !== null };
+}
+
 /** CSV cell: quoted, with spreadsheet formula injection neutralised. Numbers pass through unquoted. */
 export function csvCell(value: string | number | null | undefined) {
   if (typeof value === "number") return String(value);

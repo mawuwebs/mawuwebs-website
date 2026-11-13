@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { balanceDue, isOverdue, totals } from "@/lib/billing";
+import { balanceDue, invoiceFlags, totals } from "@/lib/billing";
 import { getBillingSettings } from "@/lib/billing-settings";
 
 const DAY = 864e5;
@@ -56,15 +56,11 @@ export async function getBillingDashboard(days: number) {
   // Open invoices: overdue, due within a week, and which reminders the next cron run will send.
   let overdue = 0, dueSoon = 0, soonReminders = 0, lateReminders = 0;
   for (const inv of sent) {
-    const bal = balanceDue(totals(inv.items, inv.taxBp).total, inv.payments);
-    if (bal <= 0) continue;
-    if (isOverdue(inv, bal, now)) {
-      overdue++;
-      if (inv.reminderCount < 2 && inv.dueDate && +inv.dueDate < +now - 3 * DAY) lateReminders++;
-    } else if (inv.dueDate && inv.dueDate < in7) {
-      dueSoon++;
-      if (!inv.preDueReminderAt && inv.dueDate < new Date(+now + 3 * DAY)) soonReminders++;
-    }
+    const f = invoiceFlags(inv, balanceDue(totals(inv.items, inv.taxBp).total, inv.payments), now);
+    if (f.overdue) overdue++;
+    if (f.dueSoon) dueSoon++;
+    if (f.soonReminder) soonReminders++;
+    if (f.lateReminder) lateReminders++;
   }
 
   // Money collected per currency, bucketed by day, against the previous period.

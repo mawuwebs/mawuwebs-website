@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, Clock, FileText, Lock, Mail, MessageSquare, Phone, ShieldCheck } from "lucide-react";
+import { Banknote, CalendarDays, Clock, FileText, Lock, Mail, MessageSquare, Phone, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/site/page-header";
 import { Section } from "@/components/site/container";
 import { ProjectBriefForm } from "@/components/site/project-brief-form";
@@ -16,6 +16,12 @@ const STEPS = [
   { icon: FileText, title: "You send a brief", body: "Four short steps, about three minutes." },
   { icon: Clock, title: "We reply in one business day", body: "From a person, with questions or a next step. Not an auto-reply." },
   { icon: MessageSquare, title: "We talk it through", body: "A call or a thread, then a written scope and quote if it's a fit." },
+];
+
+const PAYMENT = [
+  "We send a written quote. You review and accept it online, no printing or signing.",
+  "Bigger jobs may start with a deposit, shown on the quote. The balance is invoiced when the work is done.",
+  "Pay each invoice from its link: mobile money, bank transfer or card, depending on what's set up. You get a receipt every time.",
 ];
 
 const ASSURANCES = [
@@ -80,6 +86,18 @@ export default async function StartProjectPage({
                 </li>
               ))}
             </ul>
+
+            <div>
+              <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+                <Banknote className="size-5 text-accent" aria-hidden />
+                How quotes and payment work
+              </h2>
+              <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
+                {PAYMENT.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </div>
 
             <div>
               <h2 className="font-display text-lg font-semibold">Prefer to talk?</h2>

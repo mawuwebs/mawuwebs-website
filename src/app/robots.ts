@@ -5,12 +5,12 @@ export default function robots(): MetadataRoute.Robots {
 
   return {
     rules: [
-      { userAgent: "*", allow: "/", disallow: ["/admin", "/api", "/preview", "/portal"] },
+      { userAgent: "*", allow: "/", disallow: ["/admin", "/api", "/preview", "/portal", "/i/", "/q/"] },
       // AI search and answer crawlers are welcome on public pages.
       {
         userAgent: ["GPTBot", "OAI-SearchBot", "ClaudeBot", "PerplexityBot", "Google-Extended"],
         allow: "/",
-        disallow: ["/admin", "/api", "/preview", "/portal"],
+        disallow: ["/admin", "/api", "/preview", "/portal", "/i/", "/q/"],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

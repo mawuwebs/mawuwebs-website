@@ -164,3 +164,41 @@ test("csvCell: quotes, escapes and neutralises formulas; numbers stay numeric", 
   assert.equal(csvCell(-12.5), "-12.5");
   assert.equal(csvCell(null), '""');
 });
+
+import { invoiceFlags } from "../src/lib/billing";
+
+const FNOW = new Date("2026-11-11T12:00:00Z");
+const inv = (dueOffsetDays: number | null, extra: Partial<{ status: string; reminderCount: number; preDueReminderAt: Date | null }> = {}) => ({
+  status: "SENT", reminderCount: 0, preDueReminderAt: null as Date | null,
+  dueDate: dueOffsetDays === null ? null : new Date(+FNOW + dueOffsetDays * 864e5), ...extra,
+});
+
+test("invoiceFlags: overdue when past due with a balance", () => {
+  const f = invoiceFlags(inv(-1), 100, FNOW);
+  assert.equal(f.overdue, true);
+  assert.equal(f.dueSoon, false);
+});
+
+test("invoiceFlags: due within a week counts as due soon, later does not", () => {
+  assert.equal(invoiceFlags(inv(5), 100, FNOW).dueSoon, true);
+  assert.equal(invoiceFlags(inv(8), 100, FNOW).dueSoon, false);
+});
+
+test("invoiceFlags: due-soon reminder only inside 3 days and only once", () => {
+  assert.equal(invoiceFlags(inv(2), 100, FNOW).soonReminder, true);
+  assert.equal(invoiceFlags(inv(5), 100, FNOW).soonReminder, false);
+  assert.equal(invoiceFlags(inv(2, { preDueReminderAt: FNOW }), 100, FNOW).soonReminder, false);
+});
+
+test("invoiceFlags: overdue reminder follows reminderStage", () => {
+  assert.equal(invoiceFlags(inv(-2), 100, FNOW).lateReminder, false);
+  assert.equal(invoiceFlags(inv(-4), 100, FNOW).lateReminder, true);
+  assert.equal(invoiceFlags(inv(-4, { reminderCount: 1 }), 100, FNOW).lateReminder, false);
+  assert.equal(invoiceFlags(inv(-15, { reminderCount: 1 }), 100, FNOW).lateReminder, true);
+});
+
+test("invoiceFlags: paid, draft and no-due-date invoices flag nothing", () => {
+  for (const f of [invoiceFlags(inv(-5), 0, FNOW), invoiceFlags(inv(-5, { status: "DRAFT" }), 100, FNOW), invoiceFlags(inv(null), 100, FNOW)]) {
+    assert.deepEqual(f, { overdue: false, dueSoon: false, soonReminder: false, lateReminder: false });
+  }
+});
