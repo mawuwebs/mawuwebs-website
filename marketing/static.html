@@ -54,6 +54,7 @@
 <script>
   const SITE = "mawuwebs.com";           // EDIT when final domain is confirmed
   const q = new URLSearchParams(location.search);
+  const LIVE = q.get("live") === "1";   // launch-day variant
   const w = +q.get("w") || 1080, h = +q.get("h") || 1080, d = +q.get("d") || 1;
   document.documentElement.style.setProperty("--w", w);
   document.documentElement.style.setProperty("--h", h);
@@ -62,10 +63,10 @@
   const cta = (t) => `<div class="cta"><div class="btn">${t}</div><div class="url">${SITE}</div></div>`;
   const ads = {
     1: `${brand}
-        <div class="mid"><div class="badge">Launching soon</div>
+        <div class="mid"><div class="badge">${LIVE ? "Now live" : "Launching soon"}</div>
           <h1>Your business,<br><em>online</em> and<br>sorted.</h1>
           <p class="sub">Websites, apps, security and everyday IT support. We look after the tech so you can run the business.</p></div>
-        ${cta("Get early access")}`,
+        ${cta(LIVE ? "Visit the site" : "Get early access")}`,
     2: `${brand}
         <div class="mid"><div class="kick">One team. All your IT.</div>
           <h1>Everything tech,<br><em>handled.</em></h1>
@@ -74,7 +75,7 @@
             <div class="chip"><span>→</span>Cloud &amp; DevOps</div><div class="chip"><span>→</span>Cybersecurity</div>
             <div class="chip"><span>→</span>IT support</div><div class="chip"><span>→</span>SEO &amp; marketing</div>
           </div></div>
-        ${cta("Coming soon")}`,
+        ${cta(LIVE ? "Visit the site" : "Coming soon")}`,
     3: `${brand}
         <div class="mid"><div class="kick">Is your website working for you?</div>
           <h1>Slow site?<br>Lost <em>customers.</em></h1>
@@ -85,7 +86,7 @@
         <div class="mid"><div class="kick">Meet your tech partner</div>
           <h1>Built by a<br>real person.<br><em>For you.</em></h1>
           <p class="sub">Web, apps and IT support with a human on the other end.</p></div>
-        ${cta("Launching soon")}`,
+        ${cta(LIVE ? "Now live" : "Launching soon")}`,
   };
   const svc = (kick, h, sub, c) => `${brand}<div class="mid"><div class="kick">${kick}</div><h1>${h}</h1><p class="sub">${sub}</p></div>${cta(c)}`;
   ads[5] = svc("Web development", "A website that<br><em>wins</em> business.", "Fast, modern and built to turn visitors into customers.", "Start a project");

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mawuwebs motion ads: bumper + service spots</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0b1642; --navy2:#142266; --gold:#f5a623; --w:1080; --h:1920; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { font-size: calc(min(var(--w), var(--h)) * 1px / 100); }
+  body { width:calc(var(--w)*1px); height:calc(var(--h)*1px); overflow:hidden; background:var(--navy); font-family:'Manrope',system-ui,sans-serif; color:#fff; }
+  .stage { position:relative; width:100%; height:100%; overflow:hidden; background:radial-gradient(120% 80% at 85% 0%, var(--navy2), var(--navy) 60%); }
+  .ring { position:absolute; border:.5rem solid var(--gold); border-radius:50%; opacity:.16; animation:drift 14s linear infinite; }
+  @keyframes drift { from{transform:rotate(0) scale(1)} 50%{transform:rotate(25deg) scale(1.08)} to{transform:rotate(0) scale(1)} }
+  .scene { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:8rem; opacity:0; gap:4rem;
+           animation:win var(--d) var(--s) both; }
+  .scene.last { animation-name:winlast; }
+  @keyframes win { 0%{opacity:0} 8%{opacity:1} 88%{opacity:1} 100%{opacity:0} }
+  @keyframes winlast { 0%{opacity:0} 10%{opacity:1} 100%{opacity:1} }
+  .pop { opacity:0; animation:pop .6s cubic-bezier(.2,1.3,.4,1) both; animation-delay:var(--t,0s); }
+  @keyframes pop { from{opacity:0; transform:translateY(5rem) scale(.9)} to{opacity:1; transform:none} }
+  .logo { width:40rem; height:40rem; filter:drop-shadow(0 0 4rem rgba(245,166,35,.4)); animation:pop .8s .1s cubic-bezier(.2,1.3,.4,1) both, glow 1.4s .7s ease-in-out 1; }
+  @keyframes glow { 50%{ filter:drop-shadow(0 0 9rem rgba(245,166,35,.9)); } }
+  .mini { width:20rem; height:20rem; }
+  .name { font-size:9rem; font-weight:800; letter-spacing:-.03em; } .name i { font-style:normal; color:var(--gold); }
+  .kick { font-size:3.4rem; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); }
+  .big { font-size:13rem; line-height:1; font-weight:800; letter-spacing:-.035em; }
+  .strike { position:relative; display:inline-block; color:rgba(255,255,255,.55); }
+  .strike::after { content:""; position:absolute; left:-2%; top:52%; height:1.2rem; width:0; background:var(--gold); animation:line .5s var(--t,1.2s) forwards; }
+  @keyframes line { to{width:104%} }
+  .gold { color:var(--gold); }
+  .small { font-size:3.8rem; font-weight:500; color:rgba(255,255,255,.82); line-height:1.35; }
+  .svc { font-size:9.5rem; font-weight:800; letter-spacing:-.03em; line-height:1.1; display:flex; flex-direction:column; gap:1.5rem; }
+  .svc.sm { font-size:8rem; }
+  .svc span:nth-child(odd){color:#fff} .svc span:nth-child(even){color:var(--gold)}
+  .btn { background:var(--gold); color:var(--navy); font-weight:800; font-size:5rem; padding:3.2rem 7rem; border-radius:99rem; animation:pop .7s .4s both, pulse 1.3s 1.3s ease-in-out infinite; }
+  @keyframes pulse { 50%{ transform:scale(1.06); box-shadow:0 0 6rem rgba(245,166,35,.6);} }
+  .url { font-size:5.4rem; font-weight:800; }
+  .square .logo { width:28rem; height:28rem; } .square .name { font-size:8rem; } .square .big { font-size:10.5rem; }
+  .square .svc { font-size:8rem; } .square .svc.sm { font-size:7rem; } .square .scene { gap:3rem; padding:6rem; } .square .mini { width:14rem; height:14rem; }
+  .square .small { font-size:3.4rem; } .square .btn { font-size:4.4rem; padding:2.6rem 6rem; } .square .url{ font-size:4.6rem; }
+  .bar { position:absolute; left:0; bottom:0; height:.9rem; background:var(--gold); width:0; animation:bar var(--total) linear forwards; }
+  @keyframes bar { to{width:100%} }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="ring" style="width:100rem;height:100rem;right:-40rem;top:-30rem"></div>
+  <div class="ring" style="width:60rem;height:60rem;left:-25rem;bottom:-15rem;animation-direction:reverse"></div>
+  <div class="bar" id="bar"></div>
+</div>
+<script>
+  const SITE = "mawuwebs.com";
+  const LOGO = "../public/images/brand/portrait-mark.webp";
+  const q = new URLSearchParams(location.search);
+  const w = +q.get("w") || 1080, h = +q.get("h") || 1920, v = q.get("v") || "bumper", LIVE = q.get("live") === "1";
+  document.documentElement.style.setProperty("--w", w);
+  document.documentElement.style.setProperty("--h", h);
+  const stage = document.getElementById("stage");
+  if (w === h) stage.classList.add("square");
+
+  // helpers: t = animation delay in seconds
+  const P = (cls, html, t = 0, extra = "") => `<div class="${cls} pop" style="--t:${t}s;${extra}">${html}</div>`;
+  const list = (items, cls = "") => `<div class="svc ${cls}">${items.map((x, i) => P("", `<span>${x}</span>`, 0.1 + i * 0.4)).join("")}</div>`;
+  const cta = (head) => `<img class="mini pop" src="${LOGO}" alt="">${P("big", LIVE ? 'We\u2019re<br><span class="gold">live.</span>' : head, .2, "font-size:10rem")}<div class="btn">${LIVE ? "Visit the site" : "Get early access"}</div>${P("url", SITE, .9)}`;
+  const spot = (kick, problem, fix, bullets) => ({ total: 10, scenes: [
+    { s: 0, d: 3.2, html: P("kick", kick, 0) + `<div class="big">${P("strike", problem, .1, "--t:1.1s")}</div>` + P("big gold", fix, 1.6) },
+    { s: 3.0, d: 3.6, html: P("kick", "What you get", 0) + list(bullets, "sm") },
+    { s: 6.4, d: 3.6, last: 1, html: cta('Launching<br><span class="gold">soon.</span>') },
+  ]});
+
+  const V = {
+    bumper: { total: 6, scenes: [
+      { s: 0, d: 2.4, html: `<img class="logo" src="${LOGO}" alt="">` + P("name", "Mawu<i>Webs</i>", .6) + P("kick", "IT solutions &amp; digital services", .9) },
+      { s: 2.2, d: 2.2, html: list(["Websites", "Apps", "Security", "IT support"]).replace(/\.4s/g, ".3s") },
+      { s: 4.2, d: 1.8, last: 1, html: P("big", 'Launching<br><span class="gold">soon.</span>', .1, "font-size:11rem") + P("url", SITE, .6) },
+    ]},
+    web: spot("Web design", "Outdated site?", "Rebuilt to win.", ["Fast load times", "Mobile-first design", "Built to convert"]),
+    security: spot("Cybersecurity", "One breach?", "Be ready.", ["Security checks", "Backups", "Fast recovery"]),
+    support: spot("IT support", "Tech trouble?", "Real people. Fast replies.", ["Quick replies", "Everyday IT support", "One point of contact"]),
+  };
+  const cfg = V[v];
+  document.getElementById("bar").style.setProperty("--total", cfg.total + "s");
+  cfg.scenes.forEach(sc => {
+    const el = document.createElement("div");
+    el.className = "scene" + (sc.last ? " last" : "");
+    el.style.setProperty("--s", sc.s + "s"); el.style.setProperty("--d", sc.d + "s");
+    el.innerHTML = sc.html;
+    stage.insertBefore(el, document.getElementById("bar"));
+  });
+  document.body.dataset.total = cfg.total;
+  document.body.style.visibility = "hidden";
+  document.fonts.ready.then(() => { document.body.style.visibility = ""; document.body.dataset.go = "1"; });
+</script>
+</body>
+</html>

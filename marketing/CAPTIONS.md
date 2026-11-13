@@ -46,6 +46,11 @@ Image: `meet-mawu_feed-1080x1080.png`
 ## Motion ads
 - `motion_story-1080x1920.webm`: Instagram/Facebook Stories, Reels, TikTok, WhatsApp Status. Convert to MP4 first.
 - `motion_feed-1080x1080.webm`: Instagram/Facebook/LinkedIn feed.
+- `motion-bumper_*` (6s): short teaser for pre-roll, Stories, retargeting. Caption: reuse #1.
+- `motion-web_*`, `motion-security_*`, `motion-support_*` (10s each): one spot per service. Use with the matching follow-up caption in #5.
+- `motion-live_*` (15s): launch-day cut ("We're live", call to action "Visit the site"). Post on launch day, pin it.
+- `motion-web-live_*`, `motion-security-live_*`, `motion-support-live_*` (10s): service spots with the "We're live" ending, for after launch.
+- Every motion ad has `.mp4` (upload this) and `.webm`. Re-render: `python3 marketing/render_variants.py`.
 - Caption: reuse #1. Add on-screen call to action "Get early access" with the link in bio or link sticker.
 
 ## Platform notes
@@ -76,3 +81,8 @@ Best times to test first: weekdays 8-10am and 6-8pm local time. Check each platf
 - Audience: business owners and managers, local city/region, ages 25-55.
 - Test `launch` vs `health-check` vs the motion story ad; keep the winner.
 - Note: no testimonials or client logos are used, because the site's current ones are seed data. Add real ones once you have them.
+
+## Launch-day set (after launch)
+- Static: `live-launch_*`, `live-services_*`, `live-meet-mawu_*` (badge "Now live", button "Visit the site"). `health-check`, `web-dev`, `security`, `it-support` statics already work after launch.
+- Motion: `motion-live_*` plus the three `motion-*-live_*` service spots.
+- Re-render everything: `python3 marketing/render_static.py` and `python3 marketing/render_variants.py`.

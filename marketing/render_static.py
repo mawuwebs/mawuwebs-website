@@ -16,4 +16,13 @@ with sync_playwright() as p:
             pg.wait_for_timeout(400)
             pg.screenshot(path=str(here / "out" / f"{n}_{s}.png"))
             pg.close()
+    # launch-day variants (badge "Now live", call to action "Visit the site"); ads 3, 5, 6, 7 need no change
+    for d in (1, 2, 4):
+        for s, (w, h) in sizes.items():
+            pg = b.new_page(viewport={"width": w, "height": h})
+            pg.goto(f"file://{here}/static.html?w={w}&h={h}&d={d}&live=1")
+            pg.wait_for_selector("body[data-ready]")
+            pg.wait_for_timeout(400)
+            pg.screenshot(path=str(here / "out" / f"live-{names[d]}_{s}.png"))
+            pg.close()
     b.close()

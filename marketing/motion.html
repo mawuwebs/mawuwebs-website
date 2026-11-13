@@ -80,8 +80,8 @@
 
   <div class="scene s4">
     <img class="mini" src="../public/images/brand/portrait-mark.webp" alt="">
-    <div class="big" style="font-size:11rem">Launching<br><span style="color:var(--gold)">soon.</span></div>
-    <div class="btn">Get early access</div>
+    <div class="big" id="hl" style="font-size:11rem">Launching<br><span style="color:var(--gold)">soon.</span></div>
+    <div class="btn" id="cta">Get early access</div>
     <div class="url" id="url"></div>
   </div>
   <div class="bar"></div>
@@ -90,6 +90,10 @@
   const SITE = "mawuwebs.com";   // EDIT when final domain is confirmed
   document.getElementById("url").textContent = SITE;
   const q = new URLSearchParams(location.search);
+  if (q.get("v") === "live") {   // launch-day variant
+    document.getElementById("hl").innerHTML = 'We\u2019re<br><span style="color:var(--gold)">live.</span>';
+    document.getElementById("cta").textContent = "Visit the site";
+  }
   const w = +q.get("w") || 1080, h = +q.get("h") || 1920;
   document.documentElement.style.setProperty("--w", w);
   document.documentElement.style.setProperty("--h", h);
