@@ -80,6 +80,13 @@ The admin dashboard (`/admin`) provides full CRUD, with draft/published status, 
 - **Users** — admin-only user management (Admin/Editor roles)
 - **Activity Log** — audit trail of content changes
 
+### Client work (admin: Clients, Client work, Billing)
+
+- **Clients and portal** — client profiles, a customer portal (support requests, quotes, invoices, projects, equipment and renewals).
+- **Billing** — quotes, invoices, deposits, part payments, refunds, expenses, PDF documents, online payment (Paystack/Stripe), reminders and reports.
+- **Client work** — projects with milestones (optional client approval that drafts an invoice), tasks on a board, time tracking with a timer, hours budget and fixed price, profitability, templates, a timesheet, a calendar with a private calendar feed, messages and files shared with the client, and ticket-to-task links. Accepting a quote creates the project.
+- **Automations** — scheduled jobs (GitHub Actions workflow `.github/workflows/cron.yml`) for invoice reminders, recurring invoices, quote follow-ups, renewal notices, uptime alerts, task reminders and weekly digests. See `docs/launch-checklist.md`.
+
 Draft content never appears on the public site — all public queries (`src/lib/content.ts`) filter `status: "PUBLISHED"`.
 
 ## Scripts

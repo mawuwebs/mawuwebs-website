@@ -94,9 +94,7 @@ async function assertClient(id: string) {
   return prisma.user.findFirst({ where: { id, role: "CLIENT" }, select: { id: true } });
 }
 
-export async function addAsset(clientId: string, _prev: ClientState, formData: FormData): Promise<ClientState> {
-  await requireArea("orders");
-  if (!(await assertClient(clientId))) return { success: false, message: "Client not found." };
+function readAsset(formData: FormData) {
   const parsed = z
     .object({
       name: z.string().trim().min(2, "Give the item a name.").max(120),
@@ -114,15 +112,41 @@ export async function addAsset(clientId: string, _prev: ClientState, formData: F
       expiresAt: formData.get("expiresAt") ?? "",
       monitorUrl: formData.get("monitorUrl") ?? "",
     });
-  if (!parsed.success) return { success: false, message: parsed.error.issues[0].message };
+  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0].message };
   const { expiresAt, monitorUrl, ...rest } = parsed.data;
   const monitor = monitorTarget(monitorUrl);
-  if (monitor === null) return { success: false, message: "Enter a valid website address to monitor, for example example.com." };
+  if (monitor === null) return { ok: false as const, error: "Enter a valid website address to monitor, for example example.com." };
   const exp = expiresAt ? new Date(expiresAt) : null;
-  if (exp && Number.isNaN(exp.getTime())) return { success: false, message: "Enter a valid expiry date." };
-  await prisma.clientAsset.create({ data: { userId: clientId, ...rest, expiresAt: exp, monitorUrl: monitor } });
+  if (exp && Number.isNaN(exp.getTime())) return { ok: false as const, error: "Enter a valid expiry date." };
+  return { ok: true as const, data: { ...rest, expiresAt: exp, monitorUrl: monitor } };
+}
+
+export async function addAsset(clientId: string, _prev: ClientState, formData: FormData): Promise<ClientState> {
+  await requireArea("orders");
+  if (!(await assertClient(clientId))) return { success: false, message: "Client not found." };
+  const r = readAsset(formData);
+  if (!r.ok) return { success: false, message: r.error };
+  await prisma.clientAsset.create({ data: { userId: clientId, ...r.data } });
   revalidatePath(`/admin/clients/${clientId}`);
   return { success: true, message: "Added." };
+}
+
+/** Edit an item. A new expiry date restarts its renewal notices; a new website address restarts its uptime tracking. */
+export async function updateAsset(id: string, clientId: string, _prev: ClientState, formData: FormData): Promise<ClientState> {
+  await requireArea("orders");
+  const existing = await prisma.clientAsset.findFirst({ where: { id, userId: clientId }, select: { expiresAt: true, monitorUrl: true } });
+  if (!existing) return { success: false, message: "Item not found." };
+  const r = readAsset(formData);
+  if (!r.ok) return { success: false, message: r.error };
+  const expiryChanged = (existing.expiresAt?.getTime() ?? null) !== (r.data.expiresAt?.getTime() ?? null);
+  const urlChanged = existing.monitorUrl !== r.data.monitorUrl;
+  await prisma.clientAsset.update({
+    where: { id },
+    data: { ...r.data, ...(expiryChanged ? { renewalStage: 0 } : {}), ...(urlChanged ? { monitorDownSince: null, monitorCheckedAt: null } : {}) },
+  });
+  revalidatePath(`/admin/clients/${clientId}`);
+  revalidatePath("/portal/assets");
+  return { success: true, message: "Saved." };
 }
 
 export async function deleteAsset(id: string, clientId: string) {

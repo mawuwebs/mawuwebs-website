@@ -24,7 +24,7 @@ export function AdminNav({
         if (items.length === 0) return null;
         return (
           <div key={section.title}>
-            <p className="px-3 text-xs font-semibold tracking-wider text-white/40 uppercase">
+            <p className="px-3 text-xs font-semibold tracking-wider text-white/60 uppercase">
               {section.title}
             </p>
             <div className="mt-2 flex flex-col gap-0.5">

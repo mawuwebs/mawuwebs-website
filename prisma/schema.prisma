@@ -85,6 +85,8 @@ model User {
   recurring     RecurringInvoice[]
   enquiries     ContactSubmission[]
   /// Secret for the personal calendar (ICS) subscription link.
+  /// Weekly project progress emails. Clients can switch them off from the link in the email.
+  progressEmails Boolean    @default(true)
   calendarToken String?     @unique
   authoredComments ProjectComment[] @relation("CommentAuthor")
   assignedTasks Task[]      @relation("TaskAssignee")

@@ -85,6 +85,8 @@ Paystack covers GHS, NGN and USD. Stripe covers USD, EUR and GBP. Stripe does no
 ## 5. Tests and CI
 
 - `npm run typecheck`, `npm run lint`, `npm test` (unit), then `npm run build && npm run test:e2e` (browser tests of the whole billing flow against a throwaway database). GitHub Actions runs all of these on every push and pull request (`.github/workflows/ci.yml`).
+- The e2e run starts a small test mail server (`e2e/smtp-sink.ts`) and the app sends real SMTP to it, so the tests assert on the emails themselves (recipient, subject, links, sent once).
+- `SHOTS_DIR=/some/folder npx playwright test` also runs `e2e/zz-visual.spec.ts`: screenshots of the main pages at desktop and phone width, plus an automated overflow and WCAG A/AA (axe) check. Run it after changing the UI.
 - First local e2e run needs a browser: `npx playwright install chromium` (or set `E2E_CHROME` to an installed Chromium).
 - On the server, a deploy must run `npm ci` (its `postinstall` generates the Prisma client) and `npm run db:deploy` (applies migrations) before `npm run build`.
 
@@ -93,3 +95,18 @@ Paystack covers GHS, NGN and USD. Stripe covers USD, EUR and GBP. Stripe does no
 - Admin > Billing > Expenses. Receipts are private files, stored in `./data/receipts` (git-ignored) and served only to signed-in staff with billing access. Set `RECEIPT_DIR` to a persistent volume in production, and include that folder in your off-server backups next to the database.
 - Paystack fees are booked automatically as "Bank and gateway fees" when a card/MoMo payment arrives (from the `fees` field of the webhook). Stripe fees are not booked automatically: enter them by hand.
 - Expenses marked "Bill this cost to the client" with a project can be pulled into that project's draft invoice with one click.
+
+## Client work (projects, tasks, time)
+
+- Admin > Client work. A project is created from a client's page, or automatically when a client accepts a quote. Open its workspace to add milestones and tasks (or apply a template under Client work > Templates), log time, set the hourly rate, hours budget and fixed price, and message the client.
+- Milestones that need approval email the client when you mark them complete. The client approves in the portal; if the milestone has an amount, a **draft** invoice is created for you to review and send. Nothing is invoiced without you.
+- "Draft invoice from unbilled time" bills logged hours at the project's hourly rate. Deleting the draft, or voiding the sent invoice, frees the hours to be billed again.
+- A project cannot be deleted while it has unbilled hours.
+- Clients see only tasks and files you mark visible, and never internal notes. They can message you and ask for work from the project page in the portal; requests land on the board as unassigned tasks.
+- The weekly progress email has an unsubscribe link (per client). It needs `AUTH_SECRET`, which signs the link, so changing `AUTH_SECRET` invalidates old links.
+- Calendar: Client work > Calendar shows tasks, milestones, project deadlines and renewals. "Create calendar link" gives a private `.ics` link for Google or Apple Calendar; anyone with the link can see your assigned tasks, so make a new one if it leaks.
+- Scheduled jobs for this module (see section 2): `task-reminders` daily, `staff-digest` and `project-updates` weekly.
+
+## Before applying migrations in production
+
+Take a backup first (`npm run db:backup`, then copy it off the server). The project-management migration copies the old text milestones into real rows; it only adds data and never deletes any, but a backup is the rule for every migration. Run `npm run db:deploy` before starting the new build.

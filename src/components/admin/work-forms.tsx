@@ -13,7 +13,7 @@ import { PRIORITY_LABEL, TASK_STATUSES, TASK_STATUS_LABEL } from "@/lib/work";
 import {
   addMilestone, addProjectFile, addStaffComment, addStarterTemplates, applyTemplate, completeMilestone, createTask, createTaskFromTicket, deleteMilestone,
   deleteProjectFile, deleteTask, deleteTemplate, deleteTimeEntry, invoiceUnbilledTime, linkTicketToProject, logTime, reopenMilestone, resetCalendarToken,
-  saveTemplate, setProjectTerms, setTaskStatus, updateMilestone, updateTask, type WorkResult,
+  saveTemplate, setProjectDone, setProjectTerms, setTaskStatus, updateMilestone, updateTask, type WorkResult,
 } from "@/lib/actions/work";
 
 const selectCls = "mt-1.5 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm";
@@ -365,5 +365,14 @@ export function CalendarLink({ url }: { url: string | null }) {
       ) : <p className="text-sm text-muted-foreground">Create a private link to see these dates in your own calendar app.</p>}
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => resetCalendarToken())}>{url ? "Make a new link (stops the old one)" : "Create calendar link"}</Button>
     </div>
+  );
+}
+
+export function CompleteProjectButton({ projectId, label, done }: { projectId: string; label: string; done: boolean }) {
+  const { pending, run } = useRun();
+  return (
+    <Button type="button" size="sm" variant={done ? "outline" : "default"} disabled={pending} onClick={() => run(() => setProjectDone(projectId, !done))}>
+      {pending && <Loader2 className="size-4 animate-spin" />} {label}
+    </Button>
   );
 }

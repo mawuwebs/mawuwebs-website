@@ -503,3 +503,20 @@ export async function resetCalendarToken(): Promise<WorkResult> {
     return { success: true, message: "New calendar link created. Any old link stopped working." };
   });
 }
+
+/** Finish (or reopen) a project. Finishing is refused while a client approval is still outstanding. */
+export async function setProjectDone(projectId: string, done: boolean): Promise<WorkResult> {
+  return guard(async () => {
+    const user = await requireArea("orders");
+    const p = await prisma.clientProject.findUnique({ where: { id: projectId }, select: { userId: true, title: true, status: true, milestoneRows: { select: { requiresApproval: true, completedAt: true, approvedAt: true } } } });
+    if (!p) return fail("Project not found.");
+    if (done) {
+      if (p.milestoneRows.some((m) => m.requiresApproval && !m.approvedAt)) return fail("A milestone is still waiting for the client's approval.");
+      if (p.status === "DONE") return { success: true, message: "Already done." };
+    }
+    await prisma.clientProject.update({ where: { id: projectId }, data: { status: done ? "DONE" : "IN_PROGRESS" } });
+    await logActivity({ userId: user.id, action: "updated", entityType: "ClientProject", entityId: projectId, message: `${user.name ?? "Staff"} ${done ? "marked project done" : "reopened project"}: ${p.title}` });
+    refresh(projectId, p.userId);
+    return { success: true, message: done ? "Project marked done." : "Project reopened." };
+  });
+}

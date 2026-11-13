@@ -26,18 +26,31 @@ export default defineConfig({
     // E2E_CHROME lets you point at an already installed Chromium instead of downloading one.
     launchOptions: { args: ["--host-resolver-rules=MAP test.example 127.0.0.1"], executablePath: process.env.E2E_CHROME || undefined },
   },
-  webServer: {
-    command: `npx tsx e2e/prepare.ts && npx next start -p ${PORT}`,
-    url: `http://127.0.0.1:${PORT}/`,
-    reuseExistingServer: false,
-    timeout: 120_000,
-    env: {
-      DATABASE_URL: `file:${E2E_DB}`,
-      AUTH_URL: HOST,
-      NEXTAUTH_URL: HOST,
-      AUTH_TRUST_HOST: "true",
-      AUTH_SECRET: "e2e-only-secret-not-for-production-0123456789",
-      CRON_SECRET: "e2e-cron-secret",
+  webServer: [
+    {
+      // Test mail server: the app sends real SMTP here and the tests read the messages back.
+      command: "npx tsx e2e/smtp-sink.ts",
+      url: "http://127.0.0.1:2526/",
+      reuseExistingServer: false,
+      timeout: 30_000,
     },
-  },
+    {
+      command: `npx tsx e2e/prepare.ts && npx next start -p ${PORT}`,
+      url: `http://127.0.0.1:${PORT}/`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        DATABASE_URL: `file:${E2E_DB}`,
+        AUTH_URL: HOST,
+        NEXTAUTH_URL: HOST,
+        AUTH_TRUST_HOST: "true",
+        AUTH_SECRET: "e2e-only-secret-not-for-production-0123456789",
+        CRON_SECRET: "e2e-cron-secret",
+        SMTP_HOST: "127.0.0.1",
+        SMTP_PORT: "2525",
+        MAIL_FROM: "Site <site@e2e.test>",
+        NOTIFY_EMAIL: "owner@e2e.test",
+      },
+    },
+  ],
 });

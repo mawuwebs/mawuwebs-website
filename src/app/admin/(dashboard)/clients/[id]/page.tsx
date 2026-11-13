@@ -12,7 +12,7 @@ import { Globe, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { RecurringForm, RecurringRowActions } from "@/components/admin/recurring-forms";
 import { ClientProjectForm, EMPTY_PROJECT } from "@/components/admin/client-project-form";
-import { AddAssetForm, AddDocumentForm, ClientActions, EditClientForm, RemoveButton } from "@/components/admin/client-forms";
+import { AddAssetForm, AddDocumentForm, ClientActions, EditAssetForm, EditClientForm, RemoveButton } from "@/components/admin/client-forms";
 
 export const metadata: Metadata = { title: "Client" };
 
@@ -133,8 +133,9 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           const ms = p.milestoneRows;
           return (
             <details key={p.id} className="rounded-2xl border border-border bg-card p-5">
-              <summary className="cursor-pointer text-sm"><span className="font-medium">{p.title}</span> <Link href={`/admin/work/${p.id}`} className="text-accent hover:underline">Open workspace</Link> <span className="text-muted-foreground">· {PROJECT_STATUS_LABEL[p.status]} · {ms.filter((m) => m.completedAt).length}/{ms.length} milestones{p.dueDate ? ` · due ${fmtDate(p.dueDate)}` : ""}</span></summary>
+              <summary className="cursor-pointer text-sm"><span className="font-medium">{p.title}</span> <span className="text-muted-foreground">· {PROJECT_STATUS_LABEL[p.status]} · {ms.filter((m) => m.completedAt).length}/{ms.length} milestones{p.dueDate ? ` · due ${fmtDate(p.dueDate)}` : ""}</span></summary>
               <div className="mt-4">
+                <Link href={`/admin/work/${p.id}`} className="mb-4 inline-block text-sm font-medium text-accent hover:underline">Open project workspace (tasks, time, milestones)</Link>
                 <ClientProjectForm
                   clientId={client.id} projectId={p.id}
                   initial={{ title: p.title, summary: p.summary, status: p.status, startDate: p.startDate?.toISOString().slice(0, 10) ?? "", dueDate: p.dueDate?.toISOString().slice(0, 10) ?? "" }}
@@ -208,9 +209,17 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         {client.assets.length > 0 && (
           <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
             {client.assets.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-4 p-3 text-sm">
-                <span>{a.name} <span className="text-muted-foreground">· {a.type}{a.assignedTo ? ` · ${a.assignedTo}` : ""}{a.expiresAt ? ` · expires ${fmtDate(a.expiresAt)}` : ""}{a.monitorUrl ? (a.monitorDownSince ? " · DOWN since " + fmtDate(a.monitorDownSince) : a.monitorCheckedAt ? " · monitored, up" : " · monitored") : ""}</span></span>
-                <RemoveButton kind="asset" id={a.id} clientId={client.id} />
+              <li key={a.id} className="p-3 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span>{a.name} <span className="text-muted-foreground">· {a.type}{a.assignedTo ? ` · ${a.assignedTo}` : ""}{a.expiresAt ? ` · expires ${fmtDate(a.expiresAt)}` : ""}{a.monitorUrl ? (a.monitorDownSince ? " · DOWN since " + fmtDate(a.monitorDownSince) : a.monitorCheckedAt ? " · monitored, up" : " · monitored") : ""}</span></span>
+                  <RemoveButton kind="asset" id={a.id} clientId={client.id} />
+                </div>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-muted-foreground">Edit</summary>
+                  <div className="mt-3">
+                    <EditAssetForm clientId={client.id} assetId={a.id} initial={{ name: a.name, type: a.type, assignedTo: a.assignedTo, expiresAt: a.expiresAt?.toISOString().slice(0, 10) ?? "", details: a.details, monitorUrl: a.monitorUrl }} />
+                  </div>
+                </details>
               </li>
             ))}
           </ul>

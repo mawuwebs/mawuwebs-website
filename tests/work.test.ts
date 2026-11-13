@@ -154,3 +154,15 @@ test("profitability", () => {
   assert.equal(z.perHour, null);
   assert.equal(z.toInvoice, null);
 });
+
+import { progressToken, verifyProgressToken } from "../src/lib/unsubscribe";
+
+test("progress unsubscribe tokens are per user and tamper-proof", () => {
+  const t = progressToken("user1", "secret-a");
+  assert.ok(verifyProgressToken("user1", t, "secret-a"));
+  assert.ok(!verifyProgressToken("user2", t, "secret-a"));
+  assert.ok(!verifyProgressToken("user1", t, "secret-b"));
+  assert.ok(!verifyProgressToken("user1", t + "x", "secret-a"));
+  assert.ok(!verifyProgressToken("user1", "", "secret-a"));
+  assert.ok(!verifyProgressToken("", t, "secret-a"));
+});

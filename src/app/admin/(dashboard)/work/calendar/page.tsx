@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Work calendar" };
 
-const KIND_STYLE = { task: "bg-primary/10 text-foreground", milestone: "bg-accent/15 text-foreground", project: "bg-destructive/10 text-destructive", renewal: "bg-secondary text-muted-foreground" } as const;
+const KIND_STYLE = { task: "bg-primary/10 text-foreground", milestone: "bg-accent/15 text-foreground", project: "bg-destructive/5 text-[#b42318] dark:text-destructive", renewal: "bg-secondary text-muted-foreground" } as const;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 export default async function WorkCalendarPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
@@ -49,7 +49,7 @@ export default async function WorkCalendarPage({ searchParams }: { searchParams:
         </div>
       </div>
 
-      <div className="hidden gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid md:grid-cols-7" role="grid" aria-label="Month">
+      <div className="hidden gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid md:grid-cols-7">
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <div key={d} className="bg-secondary/60 p-2 text-xs font-medium text-muted-foreground">{d}</div>)}
         {Array.from({ length: weeks * 7 }, (_, i) => {
           const day = addDays(gridStart, i);

@@ -14,7 +14,7 @@ import {
 } from "@/lib/work";
 import {
   ApplyTemplateForm, DeleteEntryButton, DeleteFileButton, DeleteTaskButton, EMPTY_MILESTONE, EMPTY_TASK, InvoiceTimeButton, LogTimeForm, MilestoneActions, MilestoneForm,
-  ProjectFileForm, StaffCommentForm, TaskForm, TaskStatusSelect, TermsForm,
+  CompleteProjectButton, ProjectFileForm, StaffCommentForm, TaskForm, TaskStatusSelect, TermsForm,
 } from "@/components/admin/work-forms";
 import { cn } from "@/lib/utils";
 
@@ -102,6 +102,17 @@ export default async function ProjectWorkPage({ params }: { params: Promise<{ id
           </div>
           <p className="mt-1.5 text-xs text-muted-foreground">{progress.total === 0 ? "No tasks yet" : `${progress.done} of ${progress.total} tasks done (${progress.pct}%)`}</p>
         </div>
+        {progress.total > 0 && progress.done === progress.total && project.status !== "DONE" && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success/30 bg-success/5 p-3 text-sm">
+            <p>
+              Every task is done.
+              {unbilledMin > 0 && <> There is still <strong>{formatMinutes(unbilledMin)} of unbilled time</strong>{canBill ? " to invoice" : ""}.</>}
+              {project.milestoneRows.some((m) => m.requiresApproval && !m.approvedAt) && <> A milestone is waiting for the client&apos;s approval.</>}
+            </p>
+            <CompleteProjectButton projectId={project.id} label="Mark project done" done={false} />
+          </div>
+        )}
+        {project.status === "DONE" && <CompleteProjectButton projectId={project.id} label="Reopen project" done />}
         {triage.length > 0 && (
           <p className="flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/5 p-3 text-sm"><Inbox className="size-4 text-accent" aria-hidden /> {triage.length} request{triage.length === 1 ? "" : "s"} from the client {triage.length === 1 ? "is" : "are"} waiting to be assigned (marked below).</p>
         )}
@@ -267,7 +278,7 @@ export default async function ProjectWorkPage({ params }: { params: Promise<{ id
         )}
 
         {project.timeEntries.length > 0 && (
-          <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+          <div className="relative overflow-x-auto rounded-2xl border border-border bg-card" tabIndex={0} role="region" aria-label="Time entries">
             <table className="w-full text-sm">
               <thead className="bg-secondary/40"><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground"><th className="p-3 font-medium">Date</th><th className="p-3 font-medium">Who</th><th className="p-3 font-medium">Task and note</th><th className="p-3 text-right font-medium">Time</th><th className="p-3 font-medium">Billing</th><th className="w-10 p-3"><span className="sr-only">Remove</span></th></tr></thead>
               <tbody>

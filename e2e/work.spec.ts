@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import bcrypt from "bcryptjs";
+import { ts, withDb } from "./db";
 import { E2E_DB } from "../playwright.config";
 
 // Project work: task -> status -> time -> invoice from time -> dashboard.
@@ -19,6 +20,9 @@ test.beforeAll(async ({ browser }) => {
   db.prepare(`INSERT INTO "ClientProject" (id, userId, title, status, updatedAt) VALUES (?, ?, ?, 'IN_PROGRESS', ?)`).run("work-project-2", "work-client", "Template build", now);
   projectId = "work-project";
   db.prepare(`INSERT INTO "ClientProject" (id, userId, title, status, hourlyRate, updatedAt) VALUES (?, ?, ?, 'IN_PROGRESS', 5000, ?)`).run(projectId, "work-client", "Site build", now);
+  db.prepare(`INSERT INTO "User" (id, name, email, passwordHash, role, company, updatedAt) VALUES (?, ?, ?, ?, 'CLIENT', ?, ?)`).run("other-client", "Kojo Other", "kojo@other.test", bcrypt.hashSync("OtherPass123!", 10), "Other Co", now);
+  db.prepare(`INSERT INTO "ClientProject" (id, userId, title, status, updatedAt) VALUES (?, ?, ?, 'IN_PROGRESS', ?)`).run("work-project-3", "work-client", "Finished build", now);
+  db.prepare(`INSERT INTO "Task" (id, projectId, title, status, completedAt, updatedAt) VALUES ('done-task', 'work-project-3', 'Everything shipped', 'DONE', ?, ?)`).run(ts(), ts());
   db.close();
   page = await browser.newPage();
 });
@@ -42,7 +46,7 @@ test("a task is added, assigned to the admin, and completed", async () => {
   await page.getByText("Add a task").click();
   await page.locator("#t-title-new").fill("Design home page");
   await page.locator("#t-who-new").selectOption({ label: "E2E Admin" });
-  await page.getByLabel("Show this task to the client").check();
+  await page.locator("form").filter({ has: page.locator("#t-title-new") }).getByLabel("Show this task to the client").check();
   await page.getByRole("button", { name: "Add task" }).click();
   await expect(page.getByRole("paragraph").filter({ hasText: "Design home page" })).toBeVisible();
   await expect(page.getByText("0 of 1 tasks done")).toBeVisible();
@@ -62,6 +66,17 @@ test("time is logged and billed to a draft invoice", async () => {
   await page.goto(`/admin/work/${projectId}`);
   await expect(page.getByText("No unbilled time")).toBeVisible();
   await expect(page.getByRole("cell").filter({ hasText: /^INV-/ })).toBeVisible();
+});
+
+test("voiding the invoice frees the hours to be billed again", async () => {
+  const invoiceId = withDb((db) => (db.prepare(`SELECT id FROM "Invoice" WHERE projectId = ?`).get(projectId) as { id: string }).id);
+  await page.goto(`/admin/billing/invoices/${invoiceId}`);
+  await page.getByRole("button", { name: "Email to client" }).click();
+  await page.getByRole("button", { name: "Void invoice" }).click();
+  await page.getByRole("button", { name: "Confirm: void" }).click();
+  await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Invoice voided" })).toBeVisible();
+  await page.goto(`/admin/work/${projectId}`);
+  await expect(page.getByText("1h 30m unbilled = ")).toBeVisible();
 });
 
 test("starter templates build a project's milestones and tasks", async () => {
@@ -105,11 +120,11 @@ test("the client approves it in the portal, which drafts an invoice, and sends a
   // A client request lands on the board.
   await client.locator("#rq-title").fill("Add a booking form");
   await client.getByRole("button", { name: "Send request" }).click();
-  await expect(client.getByText("Add a booking form")).toBeVisible();
+  await expect(client.locator("[data-sonner-toast]").filter({ hasText: /Request sent/ })).toBeVisible();
   // A message from the client.
   await client.locator("#cc-body").fill("Looks great, thank you");
   await client.getByRole("button", { name: "Send message" }).click();
-  await expect(client.getByText("Looks great, thank you")).toBeVisible();
+  await expect(client.getByRole("listitem").filter({ hasText: "Looks great, thank you" })).toBeVisible();
   await client.close();
 
   await page.goto("/admin/billing");
@@ -131,11 +146,70 @@ test("staff can message the client, keep an internal note and add a file", async
   await expect(page.getByRole("link", { name: "Mockups" })).toBeVisible();
 });
 
+test("when every task is done the project offers to close, and can be reopened", async () => {
+  await page.goto("/admin/work/work-project-3");
+  await expect(page.getByText("Every task is done.")).toBeVisible();
+  await page.getByRole("button", { name: "Mark project done" }).click();
+  await expect(page.getByRole("button", { name: "Reopen project" })).toBeVisible();
+  await page.getByRole("button", { name: "Reopen project" }).click();
+  await expect(page.getByRole("button", { name: "Mark project done" })).toBeVisible();
+});
+
+test("a project with unbilled time cannot be deleted", async () => {
+  // work-project has unbilled hours again after the void. Deleting goes through the client page.
+  await page.goto("/admin/clients/work-client");
+  await page.locator("details", { hasText: "Site build" }).first().locator("summary").first().click();
+  await page.getByRole("button", { name: "Delete", exact: true }).first().click();
+  await page.getByRole("button", { name: "Confirm: delete project" }).first().click();
+  await expect(page.locator("[data-sonner-toast]").filter({ hasText: /hours of unbilled time/ })).toBeVisible();
+  expect(withDb((db) => db.prepare(`SELECT id FROM "ClientProject" WHERE id = ?`).get(projectId))).toBeTruthy();
+});
+
 test("terms, budget and profitability show on the project", async () => {
+  await page.goto(`/admin/work/${projectId}`);
   await page.locator("#terms-budget").fill("2");
   await page.getByRole("button", { name: "Save terms" }).click();
   await expect(page.getByText(/of the hours budget used/)).toBeVisible(); // 1.5h of 2h = 75%
   await expect(page.getByText("Invoiced (before tax)")).toBeVisible();
+});
+
+test("clients never see internal notes, staff-only tasks or files, and cannot open other clients' projects", async ({ browser }) => {
+  const login = async (email: string, password: string) => {
+    const p = await browser.newPage();
+    await p.goto("/portal/login");
+    await p.getByLabel("Email").fill(email);
+    await p.getByLabel("Password").first().fill(password);
+    await p.getByRole("button", { name: /sign in|log in/i }).click();
+    await p.waitForURL(/\/portal\/?$/);
+    return p;
+  };
+  withDb((db) => {
+    db.prepare(`INSERT INTO "Task" (id, projectId, title, status, clientVisible, updatedAt) VALUES ('secret-task', ?, 'Secret staff task', 'TODO', 0, ?)`).run(projectId, ts());
+    db.prepare(`INSERT INTO "ProjectFile" (id, projectId, name, url, clientVisible) VALUES ('secret-file', ?, 'Staff only file', 'https://example.com/internal.pdf', 0)`).run(projectId);
+  });
+  const owner = await login("ama@work.test", "ClientPass123!");
+  await owner.goto(`/portal/projects/${projectId}`);
+  await expect(owner.getByText("Design home page")).toBeVisible();
+  const text = await owner.locator("body").innerText();
+  expect(text).not.toContain("Secret staff task");
+  expect(text).not.toContain("Staff only file");
+  expect(text).not.toContain("Internal: client prefers WhatsApp");
+  expect(text).toContain("Mockups"); // the client-visible file is there
+  await owner.goto("/portal/projects");
+  expect(await owner.locator("body").innerText()).not.toContain("Secret staff task");
+  await owner.close();
+
+  const other = await login("kojo@other.test", "OtherPass123!");
+  const res = await other.goto(`/portal/projects/${projectId}`);
+  expect(res?.status()).toBe(404);
+  await other.goto("/portal/projects");
+  expect(await other.locator("body").innerText()).not.toContain("Site build");
+  await other.close();
+
+  const anon = await browser.newPage();
+  await anon.goto(`/portal/projects/${projectId}`);
+  await expect(anon).toHaveURL(/\/portal\/login/);
+  await anon.close();
 });
 
 test("timesheet, calendar and the personal calendar feed work", async () => {

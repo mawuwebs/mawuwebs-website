@@ -38,7 +38,7 @@ export default async function TimesheetPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
       {grid.rows.length === 0 ? <p className="text-muted-foreground">No time was logged this week.</p> : (
-        <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+        <div className="relative overflow-x-auto rounded-2xl border border-border bg-card" tabIndex={0} role="region" aria-label="Timesheet for the week">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">

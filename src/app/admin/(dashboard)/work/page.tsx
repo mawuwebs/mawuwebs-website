@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Client work" };
 
-const HEALTH = { ok: null, late: { text: "Late", cls: "bg-destructive/10 text-destructive", bar: "bg-destructive" }, budget: { text: "Hours budget nearly used", cls: "bg-accent/15 text-accent-foreground", bar: "bg-accent" }, idle: { text: "No activity for 2 weeks", cls: "bg-accent/15 text-accent-foreground", bar: "bg-accent" } } as const;
+const HEALTH = { ok: null, late: { text: "Late", cls: "bg-destructive/5 text-[#b42318] dark:text-destructive", bar: "bg-destructive" }, budget: { text: "Hours budget nearly used", cls: "bg-accent/15 text-accent-foreground", bar: "bg-accent" }, idle: { text: "No activity for 2 weeks", cls: "bg-accent/15 text-accent-foreground", bar: "bg-accent" } } as const;
 const STATUS_DOT: Record<string, string> = { TODO: "bg-muted-foreground/40", DOING: "bg-primary", REVIEW: "bg-accent", DONE: "bg-success" };
 const chip = "rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground";
 
@@ -90,7 +90,7 @@ export default async function WorkPage({ searchParams }: { searchParams: Promise
                     <span className="text-muted-foreground">{TASK_STATUS_LABEL[t.status]}</span>
                     {t.priority === 2 && <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-destructive">High</span>}
                     {t.priority === 0 && <span className="rounded-full bg-secondary px-2 py-0.5 text-muted-foreground">{PRIORITY_LABEL[0]}</span>}
-                    {t.dueDate && <span className={cn("rounded-full px-2 py-0.5", t.overdue ? "bg-destructive/10 text-destructive" : "bg-secondary text-muted-foreground")}>{t.overdue ? "Was due" : "Due"} {fmtDate(t.dueDate)}</span>}
+                    {t.dueDate && <span className={cn("rounded-full px-2 py-0.5", t.overdue ? "bg-destructive/5 text-[#b42318] dark:text-destructive" : "bg-secondary text-muted-foreground")}>{t.overdue ? "Was due" : "Due"} {fmtDate(t.dueDate)}</span>}
                   </span>
                 </Link>
               </li>

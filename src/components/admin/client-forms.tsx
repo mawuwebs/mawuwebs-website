@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
-  createClient, updateClient, addAsset, addDocument, replyAsStaff, deleteAsset, deleteDocument, generateReportNow, setClientDisabled,
+  createClient, updateClient, addAsset, updateAsset, addDocument, replyAsStaff, deleteAsset, deleteDocument, generateReportNow, setClientDisabled,
   type ClientState,
 } from "@/lib/actions/clients";
 import { ASSET_TYPES, DOC_KINDS } from "@/lib/portal-constants";
@@ -135,6 +135,26 @@ export function AddAssetForm({ clientId }: { clientId: string }) {
       <p className="self-end text-xs text-muted-foreground sm:col-span-4">An expiry date sends the client renewal notices at 30 and 7 days and on expiry. A monitored website emails you when it goes down.</p>
       <div className="sm:col-span-6 flex items-center gap-3">
         <Button type="submit" size="sm" disabled={pending}>{pending && <Loader2 className="size-4 animate-spin" />} Add item</Button>
+        <Msg s={state} />
+      </div>
+    </form>
+  );
+}
+
+export type AssetValues = { name: string; type: string; assignedTo: string; expiresAt: string; details: string; monitorUrl: string };
+
+export function EditAssetForm({ clientId, assetId, initial: v }: { clientId: string; assetId: string; initial: AssetValues }) {
+  const [state, action, pending] = useActionState(updateAsset.bind(null, assetId, clientId), initial);
+  return (
+    <form action={action} className="grid gap-3 sm:grid-cols-6">
+      <div className="sm:col-span-2"><Label htmlFor={`ea-name-${assetId}`}>Name</Label><Input id={`ea-name-${assetId}`} name="name" required defaultValue={v.name} className="mt-1.5" /></div>
+      <div><Label htmlFor={`ea-type-${assetId}`}>Type</Label><select id={`ea-type-${assetId}`} name="type" defaultValue={v.type} className={selectCls}>{ASSET_TYPES.map((t) => <option key={t}>{t}</option>)}</select></div>
+      <div><Label htmlFor={`ea-assigned-${assetId}`}>Assigned to</Label><Input id={`ea-assigned-${assetId}`} name="assignedTo" defaultValue={v.assignedTo} className="mt-1.5" /></div>
+      <div><Label htmlFor={`ea-exp-${assetId}`}>Expires</Label><Input id={`ea-exp-${assetId}`} name="expiresAt" type="date" defaultValue={v.expiresAt} className="mt-1.5" /></div>
+      <div><Label htmlFor={`ea-details-${assetId}`}>Details</Label><Input id={`ea-details-${assetId}`} name="details" defaultValue={v.details} className="mt-1.5" /></div>
+      <div className="sm:col-span-3"><Label htmlFor={`ea-monitor-${assetId}`}>Monitor website (optional)</Label><Input id={`ea-monitor-${assetId}`} name="monitorUrl" defaultValue={v.monitorUrl} className="mt-1.5" placeholder="example.com" /></div>
+      <div className="sm:col-span-3 flex items-end gap-3">
+        <Button type="submit" size="sm" disabled={pending}>{pending && <Loader2 className="size-4 animate-spin" />} Save item</Button>
         <Msg s={state} />
       </div>
     </form>

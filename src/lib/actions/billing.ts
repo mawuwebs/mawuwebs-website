@@ -233,11 +233,27 @@ async function respondToQuote(where: { id?: string; token?: string; userId?: str
     });
   }
   await logActivity({ userId: null, action: "updated", entityType: "Quote", entityId: quote.id, message: `${by} ${decision === "ACCEPTED" ? "accepted" : "declined"} quote ${quote.number}` });
+
+  // An accepted quote starts the work: make the project (if the quote is not already tied to one) so tasks, time and invoices have a home.
+  let workspace = "";
+  if (decision === "ACCEPTED") {
+    let projectId = quote.projectId;
+    if (!projectId) {
+      const project = await prisma.clientProject.create({ data: { userId: quote.userId, title: quote.title.slice(0, 140), status: "PLANNING" } });
+      projectId = project.id;
+      await prisma.quote.update({ where: { id: quote.id }, data: { projectId } });
+      await logActivity({ userId: null, action: "created", entityType: "ClientProject", entityId: projectId, message: `Project "${project.title}" created from accepted quote ${quote.number}` });
+    }
+    workspace = `\n\nProject workspace (add a template, tasks and a hourly rate):\n${siteUrl()}/admin/work/${projectId}`;
+    revalidatePath("/admin/work");
+    revalidatePath("/portal/projects");
+  }
+
   const settings = await getSiteSettings();
   await sendMail({
     to: notifyEmail(settings.contactEmail),
     subject: `Quote ${quote.number} ${decision === "ACCEPTED" ? "accepted" : "declined"} by ${quote.user.name}`,
-    text: `${by} ${decision === "ACCEPTED" ? "accepted" : "declined"} quote ${quote.number} (${quote.title}, ${formatMoney(totals(quote.items, quote.taxBp).total, quote.currency)}).\n\n${siteUrl()}/admin/billing`,
+    text: `${by} ${decision === "ACCEPTED" ? "accepted" : "declined"} quote ${quote.number} (${quote.title}, ${formatMoney(totals(quote.items, quote.taxBp).total, quote.currency)}).\n\n${siteUrl()}/admin/billing${workspace}`,
   });
   revalidateBilling(quote.userId);
   revalidatePath("/admin/messages");
@@ -470,6 +486,8 @@ export async function voidInvoice(id: string): Promise<BillingResult> {
     await prisma.$transaction([
       prisma.invoice.update({ where: { id }, data: { status: "VOID" } }),
       prisma.expense.updateMany({ where: { invoiceId: id }, data: { invoiceId: null } }),
+      // Logged hours billed on this invoice become unbilled again.
+      prisma.timeEntry.updateMany({ where: { invoiceId: id }, data: { invoiceId: null } }),
     ]);
     await logActivity({ userId: user.id, action: "updated", entityType: "Invoice", entityId: id, message: `${user.name ?? "Staff"} voided invoice ${inv.number}` });
     revalidateBilling(inv.userId);
@@ -542,10 +560,18 @@ export async function saveClientProject(id: string | null, clientId: string, inp
 export async function deleteClientProject(id: string, clientId: string): Promise<BillingResult> {
   return guard(async () => {
     await requireArea("orders");
+    const p = await prisma.clientProject.findFirst({
+      where: { id, userId: clientId },
+      select: { _count: { select: { tasks: true, timeEntries: true } }, timeEntries: { where: { billable: true, invoiceId: null, rateMinor: { gt: 0 } }, select: { minutes: true } } },
+    });
+    if (!p) return fail("Project not found.");
+    const unbilled = p.timeEntries.reduce((n, e) => n + e.minutes, 0);
+    if (unbilled > 0) return fail(`This project has ${Math.round((unbilled / 60) * 10) / 10} hours of unbilled time. Invoice it first (Client work, Draft invoice from unbilled time), or the hours would be lost.`);
     await prisma.clientProject.deleteMany({ where: { id, userId: clientId } });
     revalidateBilling(clientId);
     revalidatePath("/portal/projects");
-    return { success: true, message: "Project removed." };
+    revalidatePath("/admin/work");
+    return { success: true, message: `Project removed${p._count.tasks || p._count.timeEntries ? ` along with ${p._count.tasks} tasks and ${p._count.timeEntries} time entries` : ""}.` };
   });
 }
 

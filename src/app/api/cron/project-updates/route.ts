@@ -6,6 +6,7 @@ import { mailConfigured, sendMail, notifyEmail, siteUrl } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
 import { fmtDate } from "@/lib/portal-constants";
 import { progressOf } from "@/lib/work";
+import { progressUnsubscribeUrl } from "@/lib/unsubscribe";
 
 /**
  * Weekly progress email to each client with an active project: what finished this week and what is coming up.
@@ -23,8 +24,8 @@ export async function GET(request: NextRequest) {
   const weekAgo = new Date(now.getTime() - 6.5 * 86_400_000);
   const stale = [{ lastClientUpdateAt: null }, { lastClientUpdateAt: { lt: weekAgo } }];
   const projects = await prisma.clientProject.findMany({
-    where: { status: { in: ["IN_PROGRESS", "REVIEW"] }, OR: stale, user: { disabledAt: null } },
-    include: { user: { select: { name: true, email: true, billingEmail: true } }, tasks: { where: { clientVisible: true }, select: { title: true, status: true, dueDate: true, completedAt: true } } },
+    where: { status: { in: ["IN_PROGRESS", "REVIEW"] }, OR: stale, user: { disabledAt: null, progressEmails: true } },
+    include: { user: { select: { id: true, name: true, email: true, billingEmail: true } }, tasks: { where: { clientVisible: true }, select: { title: true, status: true, dueDate: true, completedAt: true } } },
   });
   const settings = await getSiteSettings();
   let sent = 0;
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
       to: p.user.billingEmail || p.user.email,
       replyTo: notifyEmail(settings.contactEmail),
       subject: `Progress update: ${p.title}`,
-      text: `Hi ${p.user.name.split(" ")[0]},\n\nHere is where "${p.title}" stands: ${pr.done} of ${pr.total} tasks done (${pr.pct}%).\n\nFinished this week:\n${doneThisWeek.map((t) => `- ${t.title}`).join("\n")}\n\n${upcoming.length ? `Coming up:\n${upcoming.map((t) => `- ${t.title}${t.dueDate ? ` (${fmtDate(t.dueDate)})` : ""}`).join("\n")}\n\n` : ""}See the full picture in your portal:\n${siteUrl()}/portal/projects\n\n${settings.siteName}`,
+      text: `Hi ${p.user.name.split(" ")[0]},\n\nHere is where "${p.title}" stands: ${pr.done} of ${pr.total} tasks done (${pr.pct}%).\n\nFinished this week:\n${doneThisWeek.map((t) => `- ${t.title}`).join("\n")}\n\n${upcoming.length ? `Coming up:\n${upcoming.map((t) => `- ${t.title}${t.dueDate ? ` (${fmtDate(t.dueDate)})` : ""}`).join("\n")}\n\n` : ""}See the full picture in your portal:\n${siteUrl()}/portal/projects\n\nDo not want these weekly updates? Stop them here:\n${progressUnsubscribeUrl(siteUrl(), p.user.id)}\n\n${settings.siteName}`,
     });
     if (!ok) {
       await prisma.clientProject.updateMany({ where: { id: p.id, lastClientUpdateAt: now }, data: { lastClientUpdateAt: p.lastClientUpdateAt } });
