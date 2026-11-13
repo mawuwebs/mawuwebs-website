@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   const now = new Date();
   const candidates = await prisma.invoice.findMany({
     where: { status: "SENT", reminderCount: { lt: 2 }, dueDate: { lt: new Date(now.getTime() - 3 * 86400_000) }, user: { disabledAt: null } },
-    include: { items: true, payments: true, user: { select: { name: true, email: true } } },
+    include: { items: true, payments: true, user: { select: { name: true, email: true, billingEmail: true } } },
   });
   const settings = await getSiteSettings();
   let sent = 0;
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   // "Due soon": once, when the due date is within the next 3 days.
   const soon = await prisma.invoice.findMany({
     where: { status: "SENT", preDueReminderAt: null, dueDate: { gte: now, lt: new Date(now.getTime() + 3 * 86400_000) }, user: { disabledAt: null } },
-    include: { items: true, payments: true, user: { select: { name: true, email: true } } },
+    include: { items: true, payments: true, user: { select: { name: true, email: true, billingEmail: true } } },
   });
   let soonSent = 0;
   for (const inv of soon) {
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     const claim = await prisma.invoice.updateMany({ where: { id: inv.id, status: "SENT", preDueReminderAt: null }, data: { preDueReminderAt: now } });
     if (!claim.count) continue;
     const ok = await sendMail({
-      to: inv.user.email,
+      to: inv.user.billingEmail || inv.user.email,
       replyTo: notifyEmail(settings.contactEmail),
       subject: `Invoice ${inv.number} is due on ${inv.dueDate!.toLocaleDateString("en-GB")}`,
       text: `Hi ${inv.user.name.split(" ")[0]},\n\nA quick heads-up that invoice ${inv.number} (${inv.title}) is due on ${inv.dueDate!.toLocaleDateString("en-GB")}. The balance is ${formatMoney(balance, inv.currency)}.\n\nView and pay it here:\n${siteUrl()}/i/${inv.token}\n\nIf you have already paid, thank you, and please ignore this message.\n\n${settings.siteName}`,
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     if (!claim.count) continue;
     const link = `${siteUrl()}/i/${inv.token}`;
     const ok = await sendMail({
-      to: inv.user.email,
+      to: inv.user.billingEmail || inv.user.email,
       replyTo: notifyEmail(settings.contactEmail),
       subject: `${stage === 2 ? "Final reminder" : "Reminder"}: invoice ${inv.number} is overdue`,
       text: `Hi ${inv.user.name.split(" ")[0]},\n\n${stage === 2 ? "This is a final reminder that" : "A friendly reminder that"} invoice ${inv.number} (${inv.title}) was due on ${inv.dueDate!.toLocaleDateString("en-GB")}. The balance is ${formatMoney(balance, inv.currency)}.\n\nView and pay it here:\n${link}\n\nIf you have already paid, please reply with the payment details and ignore this message.\n\n${settings.siteName}`,

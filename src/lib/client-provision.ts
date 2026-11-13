@@ -12,7 +12,7 @@ export type ProvisionResult =
 
 /** Creates a CLIENT user, emails the portal invite and logs it. Shared by "Add client" and "Convert enquiry". */
 export async function provisionClient(
-  input: { name: string; email: string; company: string },
+  input: { name: string; email: string; company: string } & Partial<Record<"phone" | "whatsapp" | "jobTitle" | "billingEmail" | "address" | "city" | "country" | "website" | "taxId" | "industry" | "source" | "notes", string>>,
   admin: { id: string; name?: string | null }
 ): Promise<ProvisionResult> {
   if (process.env.NODE_ENV === "production" && (!process.env.AUTH_URL || /localhost|127\.0\.0\.1/.test(process.env.AUTH_URL))) {

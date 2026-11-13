@@ -22,7 +22,7 @@ export type DeliverResult = { ok: true; emailed: boolean; link: string; number: 
 
 /** Marks a draft/sent invoice as sent and emails the client link. Shared by the staff button and the recurring cron. */
 export async function deliverInvoice(id: string): Promise<DeliverResult> {
-  const inv = await prisma.invoice.findUnique({ where: { id }, include: { items: true, user: { select: { name: true, email: true } } } });
+  const inv = await prisma.invoice.findUnique({ where: { id }, include: { items: true, user: { select: { name: true, email: true, billingEmail: true } } } });
   if (!inv) return { ok: false, message: "Invoice not found." };
   if (inv.status === "PAID" || inv.status === "VOID") return { ok: false, message: `This invoice is ${inv.status.toLowerCase()}.` };
   const t = totals(inv.items, inv.taxBp);
@@ -42,7 +42,7 @@ export async function deliverInvoice(id: string): Promise<DeliverResult> {
   }
   const emailed = await sendMail({
     attachments,
-    to: inv.user.email,
+    to: inv.user.billingEmail || inv.user.email,
     replyTo: notifyEmail(settings.contactEmail),
     subject: `Invoice ${inv.number} from ${settings.siteName}`,
     text: `Hi ${inv.user.name.split(" ")[0]},\n\nInvoice ${inv.number} for ${inv.title}: ${formatMoney(t.total, inv.currency)}${inv.dueDate ? `, due ${inv.dueDate.toLocaleDateString("en-GB")}` : ""}.\n\n${attachments ? "A PDF copy is attached. " : ""}View, print or pay it here:\n${link}\n\n${settings.siteName}`,

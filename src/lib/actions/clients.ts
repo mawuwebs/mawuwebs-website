@@ -7,30 +7,77 @@ import { requireArea } from "@/lib/require-admin";
 import { logActivity } from "@/lib/activity-log";
 import { sendMail, notifyEmail, siteUrl } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
+import { isValidPhone, normalizeWebsite } from "@/lib/phone";
 import { provisionClient } from "@/lib/client-provision";
 import { createMonthlyReport } from "@/lib/report";
 import { ASSET_TYPES, DOC_KINDS, ticketRef } from "@/lib/portal";
+import { monitorTarget } from "@/lib/automation";
 
 export type ClientState = { success: boolean; message: string; inviteLink?: string; emailed?: boolean };
+
+const optional = (max: number) => z.string().trim().max(max).default("");
+
+const profileSchema = z.object({
+  company: optional(120),
+  jobTitle: optional(100),
+  phone: optional(30).refine(isValidPhone, "Enter a valid phone number, for example 024 123 4567 or +233 24 123 4567."),
+  whatsapp: optional(30).refine(isValidPhone, "Enter a valid WhatsApp number."),
+  billingEmail: optional(160).refine((v) => v === "" || z.string().email().safeParse(v).success, "Enter a valid billing email."),
+  address: optional(300),
+  city: optional(80),
+  country: optional(80),
+  website: optional(200),
+  taxId: optional(60),
+  industry: optional(80),
+  source: optional(80),
+  notes: optional(4000),
+});
 
 const clientSchema = z.object({
   name: z.string().trim().min(2, "Enter a name.").max(100),
   email: z.string().trim().toLowerCase().email("Enter a valid email address."),
-  company: z.string().trim().max(120).default(""),
-});
+}).extend(profileSchema.shape);
+
+const PROFILE_KEYS = ["company", "jobTitle", "phone", "whatsapp", "billingEmail", "address", "city", "country", "website", "taxId", "industry", "source", "notes"] as const;
+
+function readClientForm(formData: FormData) {
+  const raw: Record<string, FormDataEntryValue | null> = { name: formData.get("name"), email: formData.get("email") };
+  for (const k of PROFILE_KEYS) raw[k] = formData.get(k) ?? "";
+  return clientSchema.safeParse(raw);
+}
+
+/** Website is stored with https:// added; an unusable address is a form error rather than silently dropped. */
+function cleanWebsite(site: string): string | null {
+  return normalizeWebsite(site);
+}
 
 export async function createClient(_prev: ClientState, formData: FormData): Promise<ClientState> {
   const admin = await requireArea("orders");
-  const parsed = clientSchema.safeParse({
-    name: formData.get("name"),
-    email: formData.get("email"),
-    company: formData.get("company") ?? "",
-  });
+  const parsed = readClientForm(formData);
   if (!parsed.success) return { success: false, message: parsed.error.issues[0].message };
-  const res = await provisionClient(parsed.data, admin);
+  const website = cleanWebsite(parsed.data.website);
+  if (website === null) return { success: false, message: "Enter a valid website address, for example example.com." };
+  const res = await provisionClient({ ...parsed.data, website }, admin);
   if (!res.ok) return { success: false, message: res.message };
   revalidatePath("/admin/clients");
   return { success: true, message: res.message, inviteLink: res.link, emailed: res.emailed };
+}
+
+/** Edit a client's contact details. Email is the sign-in identity, so changing it checks for clashes. */
+export async function updateClient(id: string, _prev: ClientState, formData: FormData): Promise<ClientState> {
+  const admin = await requireArea("orders");
+  const parsed = readClientForm(formData);
+  if (!parsed.success) return { success: false, message: parsed.error.issues[0].message };
+  const website = cleanWebsite(parsed.data.website);
+  if (website === null) return { success: false, message: "Enter a valid website address, for example example.com." };
+  if (!(await assertClient(id))) return { success: false, message: "Client not found." };
+  const clash = await prisma.user.findFirst({ where: { email: parsed.data.email, NOT: { id } }, select: { id: true } });
+  if (clash) return { success: false, message: "Another account already uses that email." };
+  await prisma.user.update({ where: { id }, data: { ...parsed.data, website } });
+  await logActivity({ userId: admin.id, action: "updated", entityType: "Client", entityId: id, message: `${admin.name ?? "Staff"} updated details for ${parsed.data.name}` });
+  revalidatePath(`/admin/clients/${id}`);
+  revalidatePath("/admin/clients");
+  return { success: true, message: "Details saved." };
 }
 
 export async function setClientDisabled(id: string, disabled: boolean): Promise<ClientState> {
@@ -57,6 +104,7 @@ export async function addAsset(clientId: string, _prev: ClientState, formData: F
       details: z.string().trim().max(500).default(""),
       assignedTo: z.string().trim().max(120).default(""),
       expiresAt: z.string().trim().default(""),
+      monitorUrl: z.string().trim().max(300).default(""),
     })
     .safeParse({
       name: formData.get("name"),
@@ -64,12 +112,15 @@ export async function addAsset(clientId: string, _prev: ClientState, formData: F
       details: formData.get("details") ?? "",
       assignedTo: formData.get("assignedTo") ?? "",
       expiresAt: formData.get("expiresAt") ?? "",
+      monitorUrl: formData.get("monitorUrl") ?? "",
     });
   if (!parsed.success) return { success: false, message: parsed.error.issues[0].message };
-  const { expiresAt, ...rest } = parsed.data;
+  const { expiresAt, monitorUrl, ...rest } = parsed.data;
+  const monitor = monitorTarget(monitorUrl);
+  if (monitor === null) return { success: false, message: "Enter a valid website address to monitor, for example example.com." };
   const exp = expiresAt ? new Date(expiresAt) : null;
   if (exp && Number.isNaN(exp.getTime())) return { success: false, message: "Enter a valid expiry date." };
-  await prisma.clientAsset.create({ data: { userId: clientId, ...rest, expiresAt: exp } });
+  await prisma.clientAsset.create({ data: { userId: clientId, ...rest, expiresAt: exp, monitorUrl: monitor } });
   revalidatePath(`/admin/clients/${clientId}`);
   return { success: true, message: "Added." };
 }
@@ -170,7 +221,7 @@ export async function convertSubmissionToClient(submissionId: string): Promise<C
     return { success: true, message: "Linked to the existing client.", clientId: existing.id };
   }
 
-  const res = await provisionClient({ name: sub.name.trim().slice(0, 100) || email, email, company: "" }, admin);
+  const res = await provisionClient({ name: sub.name.trim().slice(0, 100) || email, email, company: "", phone: (sub.phone ?? "").slice(0, 30) }, admin);
   if (!res.ok) return { success: false, message: res.message };
   await prisma.contactSubmission.update({ where: { id: sub.id }, data: { clientId: res.id } });
   revalidatePath("/admin/messages");

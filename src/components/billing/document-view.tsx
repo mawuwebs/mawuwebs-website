@@ -16,7 +16,7 @@ export type DocViewData = {
   overdue?: boolean;
   /** Quotes: percent invoiced up front once accepted (0 = none). */
   depositPct?: number;
-  client: { name: string; company: string; email: string };
+  client: { name: string; company: string; email: string; phone?: string; address?: string; city?: string; country?: string; taxId?: string };
   payments?: { id: string; amount: number; method: string; reference: string; paidAt: Date }[];
 };
 
@@ -72,7 +72,11 @@ export async function DocumentView({ doc, issuer }: { doc: DocViewData; issuer: 
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{isInvoice ? "Billed to" : "Prepared for"}</p>
             <p className="mt-1 font-medium">{doc.client.company || doc.client.name}</p>
             {doc.client.company && <p className="text-neutral-600">{doc.client.name}</p>}
-            <p className="text-neutral-600">{doc.client.email}</p>
+            {(doc.client.address || doc.client.city || doc.client.country) && (
+              <p className="whitespace-pre-line text-neutral-600">{[doc.client.address, [doc.client.city, doc.client.country].filter(Boolean).join(", ")].filter(Boolean).join("\n")}</p>
+            )}
+            <p className="text-neutral-600">{doc.client.email}{doc.client.phone ? ` · ${doc.client.phone}` : ""}</p>
+            {doc.client.taxId && <p className="text-neutral-600">Tax ID: {doc.client.taxId}</p>}
           </div>
           <dl className="grid grid-cols-[auto_1fr] content-start gap-x-4 gap-y-1 sm:text-right">
             <dt className="text-neutral-500">Issued</dt><dd>{fmt(doc.issuedAt)}</dd>

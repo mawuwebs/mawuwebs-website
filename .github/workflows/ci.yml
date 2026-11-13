@@ -22,6 +22,8 @@ jobs:
       - run: npm ci
       - name: Apply migrations (the build prerenders pages that read the database)
         run: npx prisma migrate deploy
+      - name: Schema matches migrations (fails if schema.prisma changed without a migration)
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test

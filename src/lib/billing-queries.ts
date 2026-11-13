@@ -4,13 +4,13 @@ import { amountPaid, balanceDue, isOverdue, isQuoteExpired, totals, INVOICE_STAT
 import type { DocViewData } from "@/components/billing/document-view";
 
 const itemOrder = { orderBy: { position: "asc" as const } };
-const clientSel = { select: { name: true, company: true, email: true } };
+const clientSel = { select: { name: true, company: true, email: true, phone: true, address: true, city: true, country: true, taxId: true } };
 
 export function quoteToView(q: {
   number: string; title: string; currency: string; taxBp: number; notes: string; status: keyof typeof QUOTE_STATUS_LABEL;
   validUntil: Date | null; createdAt: Date; sentAt: Date | null; depositPct: number;
   items: { description: string; quantity: number; unitAmount: number }[];
-  user: { name: string; company: string; email: string };
+  user: { name: string; company: string; email: string; phone?: string; address?: string; city?: string; country?: string; taxId?: string };
 }): DocViewData {
   const expired = q.status === "SENT" && isQuoteExpired(q.validUntil);
   return {
@@ -24,7 +24,7 @@ export function invoiceToView(i: {
   dueDate: Date | null; issueDate: Date;
   items: { description: string; quantity: number; unitAmount: number }[];
   payments: { id: string; amount: number; method: string; reference: string; paidAt: Date }[];
-  user: { name: string; company: string; email: string };
+  user: { name: string; company: string; email: string; phone?: string; address?: string; city?: string; country?: string; taxId?: string };
 }): DocViewData {
   const balance = balanceDue(totals(i.items, i.taxBp).total, i.payments);
   return {

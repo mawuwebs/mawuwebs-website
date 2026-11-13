@@ -7,10 +7,12 @@ import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { fmtDate, ticketRef, TICKET_STATUS_LABEL } from "@/lib/portal";
 import { balanceDue, formatMoney, isOverdue, milestonesToText, parseMilestones, totals, INVOICE_STATUS_LABEL, PROJECT_STATUS_LABEL, QUOTE_STATUS_LABEL } from "@/lib/billing";
+import { telHref, whatsappHref } from "@/lib/phone";
+import { Globe, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { RecurringForm, RecurringRowActions } from "@/components/admin/recurring-forms";
 import { ClientProjectForm, EMPTY_PROJECT } from "@/components/admin/client-project-form";
-import { AddAssetForm, AddDocumentForm, ClientActions, RemoveButton } from "@/components/admin/client-forms";
+import { AddAssetForm, AddDocumentForm, ClientActions, EditClientForm, RemoveButton } from "@/components/admin/client-forms";
 
 export const metadata: Metadata = { title: "Client" };
 
@@ -31,13 +33,94 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     },
   });
   if (!client) notFound();
+
+  // Money position across everything billed to this client.
+  const owes: Record<string, number> = {};
+  let overdueAny = false;
+  const billed: Record<string, number> = {};
+  const paid: Record<string, number> = {};
+  for (const i of client.invoices) {
+    if (i.status === "DRAFT" || i.status === "VOID") continue;
+    const t = totals(i.items, i.taxBp).total;
+    const bal = balanceDue(t, i.payments);
+    billed[i.currency] = (billed[i.currency] ?? 0) + t;
+    paid[i.currency] = (paid[i.currency] ?? 0) + (t - bal);
+    if (i.status === "SENT" && bal > 0) { owes[i.currency] = (owes[i.currency] ?? 0) + bal; if (isOverdue(i, bal)) overdueAny = true; }
+  }
+  const line = (m: Record<string, number>) => Object.entries(m).map(([c, n]) => formatMoney(n, c)).join(" · ") || "—";
+  const openTickets = client.tickets.filter((t) => t.status !== "RESOLVED").length;
+  const tel = telHref(client.phone);
+  const wa = whatsappHref(client.whatsapp || client.phone);
+  const place = [client.city, client.country].filter(Boolean).join(", ");
+  const iconBtn = "inline-flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
   return (
     <div className="space-y-10">
-      <div>
+      <div className="space-y-5">
         <Link href="/admin/clients" className="text-sm text-muted-foreground hover:text-foreground">← Clients</Link>
-        <h1 className="mt-2 font-display text-2xl font-bold">{client.company || client.name}</h1>
-        <p className="text-sm text-muted-foreground">{client.name} · {client.email}{client.disabledAt ? " · access disabled" : ""}</p>
-        <div className="mt-4"><ClientActions clientId={client.id} disabled={!!client.disabledAt} /></div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="font-display text-2xl font-bold">{client.company || client.name}</h1>
+            <p className="text-sm text-muted-foreground">
+              {client.name}{client.jobTitle ? `, ${client.jobTitle}` : ""}{client.disabledAt ? " · access disabled" : client.lastLoginAt ? ` · last signed in ${fmtDate(client.lastLoginAt)}` : " · invited, not signed in yet"}
+            </p>
+          </div>
+          {showBilling && (
+            <div className="flex gap-2">
+              <Link href={`/admin/billing/quotes/new?client=${client.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>New quote</Link>
+              <Link href={`/admin/billing/invoices/new?client=${client.id}`} className={buttonVariants({ size: "sm" })}>New invoice</Link>
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+          <div className="space-y-3 rounded-2xl border border-border bg-card p-5 text-sm">
+            <h2 className="font-semibold">Contact</h2>
+            <ul className="space-y-2">
+              <li className="flex items-center gap-2"><Mail className="size-4 text-muted-foreground" /><a href={`mailto:${client.email}`} className="hover:underline">{client.email}</a></li>
+              {client.billingEmail && <li className="flex items-center gap-2 text-muted-foreground"><Mail className="size-4" />Invoices to {client.billingEmail}</li>}
+              <li className="flex flex-wrap items-center gap-2">
+                <Phone className="size-4 text-muted-foreground" />
+                {client.phone ? <a href={tel ?? undefined} className="hover:underline">{client.phone}</a> : <span className="italic text-muted-foreground">No phone yet. Add one below.</span>}
+                {tel && <a href={tel} aria-label="Call" title="Call" className={iconBtn}><Phone className="size-4" /></a>}
+                {wa && <a href={wa} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" title="WhatsApp" className={iconBtn}><MessageCircle className="size-4" /></a>}
+              </li>
+              {client.whatsapp && client.whatsapp !== client.phone && <li className="flex items-center gap-2 text-muted-foreground"><MessageCircle className="size-4" />WhatsApp {client.whatsapp}</li>}
+              {(client.address || place) && <li className="flex items-start gap-2"><MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><span className="whitespace-pre-line">{[client.address, place].filter(Boolean).join("\n")}</span></li>}
+              {client.website && <li className="flex items-center gap-2"><Globe className="size-4 text-muted-foreground" /><a href={client.website} target="_blank" rel="noopener noreferrer" className="break-all hover:underline">{client.website.replace(/^https?:\/\//, "")}</a></li>}
+            </ul>
+            {(client.industry || client.source || client.taxId) && (
+              <p className="border-t border-border pt-3 text-xs text-muted-foreground">
+                {[client.industry, client.source && `Found us via ${client.source}`, client.taxId && `Tax ID ${client.taxId}`].filter(Boolean).join(" · ")}
+              </p>
+            )}
+            {client.notes && <p className="whitespace-pre-line rounded-lg bg-secondary/60 p-3 text-xs"><span className="font-semibold">Internal note: </span>{client.notes}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 self-start">
+            {showBilling && (
+              <>
+                <div className="rounded-2xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Owes now</p><p className={`mt-1 font-display text-lg font-bold tabular-nums ${overdueAny ? "text-destructive" : ""}`}>{line(owes)}</p>{overdueAny && <p className="text-xs text-destructive">includes overdue</p>}</div>
+                <div className="rounded-2xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Paid to date</p><p className="mt-1 font-display text-lg font-bold tabular-nums">{line(paid)}</p></div>
+              </>
+            )}
+            <div className="rounded-2xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Open tickets</p><p className="mt-1 font-display text-lg font-bold">{openTickets}</p></div>
+            <div className="rounded-2xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Projects</p><p className="mt-1 font-display text-lg font-bold">{client.projects.length}</p></div>
+          </div>
+        </div>
+
+        <details className="rounded-2xl border border-border bg-card">
+          <summary className="cursor-pointer p-5 text-sm font-semibold">Edit details</summary>
+          <div className="border-t border-border p-5 sm:p-6">
+            <EditClientForm
+              clientId={client.id}
+              initial={{
+                name: client.name, email: client.email, company: client.company, jobTitle: client.jobTitle, phone: client.phone, whatsapp: client.whatsapp, billingEmail: client.billingEmail,
+                address: client.address, city: client.city, country: client.country, website: client.website, taxId: client.taxId, industry: client.industry, source: client.source, notes: client.notes,
+              }}
+            />
+          </div>
+        </details>
+        <ClientActions clientId={client.id} disabled={!!client.disabledAt} />
       </div>
 
       <section className="space-y-4">
@@ -126,7 +209,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
             {client.assets.map((a) => (
               <li key={a.id} className="flex items-center justify-between gap-4 p-3 text-sm">
-                <span>{a.name} <span className="text-muted-foreground">· {a.type}{a.assignedTo ? ` · ${a.assignedTo}` : ""}{a.expiresAt ? ` · expires ${fmtDate(a.expiresAt)}` : ""}</span></span>
+                <span>{a.name} <span className="text-muted-foreground">· {a.type}{a.assignedTo ? ` · ${a.assignedTo}` : ""}{a.expiresAt ? ` · expires ${fmtDate(a.expiresAt)}` : ""}{a.monitorUrl ? (a.monitorDownSince ? " · DOWN since " + fmtDate(a.monitorDownSince) : a.monitorCheckedAt ? " · monitored, up" : " · monitored") : ""}</span></span>
                 <RemoveButton kind="asset" id={a.id} clientId={client.id} />
               </li>
             ))}

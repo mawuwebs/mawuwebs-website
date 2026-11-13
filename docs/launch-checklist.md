@@ -28,6 +28,19 @@ curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://YOUR-DOMAIN/api/cron/r
 
 Also call `/api/cron/invoice-reminders` daily (overdue reminders at 3 and 14 days; switch off in Billing settings), and schedule `/api/cron/digest` (weekly) and `/api/cron/monthly-report` (monthly) if you use them. For emailed billing summaries of the previous period, schedule `/api/cron/billing-report?period=daily` (every morning), `?period=weekly` (Monday) and/or `?period=monthly` (1st); add `&dry=1` to preview the JSON without emailing. Use the host's cron screen, a server crontab, or an external scheduler such as cron-job.org. Check the JSON reply the first time: `{"due":1,"created":1,"sent":0}`.
 
+### Scheduling with GitHub Actions
+
+`.github/workflows/cron.yml` calls every endpoint for you, so no host cron is needed. Add repository secrets `APP_URL` (https address, no trailing slash) and `CRON_SECRET` (same value as on the server). Schedule (UTC):
+
+| When | Endpoints |
+| --- | --- |
+| every 15 min | `uptime` (alerts you when a monitored client site goes down or recovers) |
+| daily 07:00 | `recurring-invoices`, `invoice-reminders`, `quote-followups` (one nudge after 5 days), `asset-renewals` (client notices at 30 and 7 days and on expiry), `billing-report?period=daily` |
+| Monday 08:00 | `digest`, `billing-report?period=weekly` |
+| 1st, 07:00 | `monthly-report`, `billing-report?period=monthly` |
+
+Run any group by hand from the Actions tab (Scheduled jobs, Run workflow). GitHub can delay schedules a few minutes and pauses them after 60 days with no repository activity. To monitor a client site or send renewal notices, add the item under Client, Equipment and services with a website address and/or an expiry date.
+
 ## 3. Backups
 
 ```

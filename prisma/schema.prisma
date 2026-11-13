@@ -52,6 +52,24 @@ model User {
   lastLoginAt       DateTime?
   disabledAt        DateTime?
   company           String    @default("")
+  // Client profile (used for CLIENT users; empty for staff)
+  phone             String    @default("")
+  /// Separate WhatsApp number when it differs from the phone.
+  whatsapp          String    @default("")
+  jobTitle          String    @default("")
+  address           String    @default("")
+  city              String    @default("")
+  country           String    @default("")
+  website           String    @default("")
+  /// TIN / VAT number, printed on invoices.
+  taxId             String    @default("")
+  /// Where invoices are emailed when it is not the sign-in email.
+  billingEmail      String    @default("")
+  industry          String    @default("")
+  /// How they found us: referral, website, social, event...
+  source            String    @default("")
+  /// Internal only. Never shown to the client.
+  notes             String    @default("")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -431,9 +449,17 @@ model ClientAsset {
   details    String    @default("")
   assignedTo String    @default("")
   expiresAt  DateTime?
+  /// Highest renewal notice already sent for the current expiry (0 none, 1 = 30 days, 2 = 7 days, 3 = expired).
+  renewalStage Int     @default(0)
+  /// Optional public URL pinged by the uptime cron. Empty = not monitored.
+  monitorUrl String    @default("")
+  /// Set while the last checks failed; cleared on recovery. Used to alert once per outage.
+  monitorDownSince DateTime?
+  monitorCheckedAt DateTime?
   createdAt  DateTime  @default(now())
 
   @@index([userId])
+  @@index([monitorUrl])
 }
 
 /// Reports, invoices and contracts shared with a client. Reports carry their text in `body`; others link to a file.
@@ -519,6 +545,8 @@ model Quote {
   /// Unguessable id for the emailed link.
   token         String       @unique
   sentAt        DateTime?
+  /// When the unanswered-quote follow-up email went out (sent at most once).
+  nudgedAt      DateTime?
   acceptedAt    DateTime?
   acceptedBy    String?
   declinedAt    DateTime?

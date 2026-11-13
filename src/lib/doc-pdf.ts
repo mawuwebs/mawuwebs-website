@@ -80,7 +80,9 @@ export async function renderDocPdf(doc: DocViewData, issuer: Issuer, extra: { le
     return yy;
   };
   const fromLines = [extra.legalName || issuer.siteName, ...issuer.address.split("\n").filter(Boolean), ...(extra.taxId ? [`Tax ID: ${extra.taxId}`] : [])];
-  const toLines = [doc.client.company || doc.client.name, ...(doc.client.company ? [doc.client.name] : []), doc.client.email];
+  const c = doc.client;
+  const place = [c.city, c.country].filter(Boolean).join(", ");
+  const toLines = [c.company || c.name, ...(c.company ? [c.name] : []), ...(c.address ? c.address.split("\n").filter(Boolean) : []), ...(place ? [place] : []), c.email, ...(c.phone ? [c.phone] : []), ...(c.taxId ? [`Tax ID: ${c.taxId}`] : [])];
   const y1 = block("From", fromLines, M);
   const y2 = block(isInvoice ? "Billed to" : "Prepared for", toLines, M + colW);
   const dates: [string, string][] = [["Issued", fmt(doc.issuedAt)], ...(doc.date ? [[isInvoice ? "Due" : "Valid until", fmt(doc.date)] as [string, string]] : []), ["Status", doc.overdue ? "Overdue" : doc.statusLabel]];
