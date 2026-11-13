@@ -11,8 +11,10 @@ import { sendMail, notifyEmail, siteUrl } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
 import { rateLimited } from "@/lib/rate-limit";
 import { createCheckoutUrl } from "@/lib/gateway";
+import { quoteInclude, quoteToView } from "@/lib/billing-queries";
 import { deliverInvoice, nextNumber } from "@/lib/invoicing";
 import { getBillingSettings } from "@/lib/billing-settings";
+import { renderDocPdf } from "@/lib/doc-pdf";
 import { providersForCurrency } from "@/lib/payment-config";
 import {
   CURRENCIES, PAYMENT_METHODS, isQuoteExpired, formatMoney, milestonesFromText, parseMoney, parseSignedMoney, parseTaxPercent, depositSplit, subtotal, totals, amountPaid,
@@ -34,7 +36,7 @@ const newToken = () => randomBytes(24).toString("base64url");
 
 function parseDate(s: string): Date | null | "bad" {
   if (!s) return null;
-  const d = new Date(`${s}T12:00:00`);
+  const d = new Date(`${s}T12:00:00Z`);
   return Number.isNaN(d.getTime()) ? "bad" : d;
 }
 
@@ -175,11 +177,23 @@ export async function sendQuote(id: string): Promise<BillingResult> {
     if (t.total <= 0) return fail("The quote total must be more than zero.");
     const settings = await getSiteSettings();
     const link = `${siteUrl()}/q/${quote.token}`;
+    // Attach a PDF copy. If rendering fails the email still goes out with the link.
+    let attachments: { filename: string; content: Buffer; contentType: string }[] | undefined;
+    try {
+      const full = await prisma.quote.findUnique({ where: { id }, include: quoteInclude });
+      if (full) {
+        const bytes = await renderDocPdf(quoteToView({ ...full, status: "SENT" }), settings, await getBillingSettings());
+        attachments = [{ filename: `${quote.number}.pdf`, content: Buffer.from(bytes), contentType: "application/pdf" }];
+      }
+    } catch (err) {
+      console.error("[quote] pdf attach failed", err);
+    }
     const emailed = await sendMail({
+      attachments,
       to: quote.user.email,
       replyTo: notifyEmail(settings.contactEmail),
       subject: `Quote ${quote.number} from ${settings.siteName}`,
-      text: `Hi ${quote.user.name.split(" ")[0]},\n\nHere is your quote for ${quote.title}: ${formatMoney(t.total, quote.currency)}${quote.validUntil ? `, valid until ${quote.validUntil.toLocaleDateString("en-GB")}` : ""}.\n\nView, print or accept it here:\n${link}\n\n${settings.siteName}`,
+      text: `Hi ${quote.user.name.split(" ")[0]},\n\nHere is your quote for ${quote.title}: ${formatMoney(t.total, quote.currency)}${quote.validUntil ? `, valid until ${quote.validUntil.toLocaleDateString("en-GB")}` : ""}.\n\n${attachments ? "A PDF copy is attached. " : ""}View, print or accept it here:\n${link}\n\n${settings.siteName}`,
     });
     await prisma.$transaction(async (tx) => {
       await tx.quote.update({ where: { id }, data: { status: "SENT", sentAt: new Date() } });
