@@ -9,8 +9,8 @@ export const metadata: Metadata = { title: "Quotes and invoices" };
 export default async function PortalBilling() {
   const user = await requirePortalUser();
   const [quotes, invoices] = await Promise.all([
-    prisma.quote.findMany({ where: { userId: user.id, status: { not: "DRAFT" } }, orderBy: { createdAt: "desc" }, include: { items: true } }),
-    prisma.invoice.findMany({ where: { userId: user.id, status: { not: "DRAFT" } }, orderBy: { createdAt: "desc" }, include: { items: true, payments: true } }),
+    prisma.quote.findMany({ where: { userId: user.id, status: { not: "DRAFT" } }, orderBy: { createdAt: "desc" }, take: 200, include: { items: true } }),
+    prisma.invoice.findMany({ where: { userId: user.id, status: { not: "DRAFT" } }, orderBy: { createdAt: "desc" }, take: 200, include: { items: true, payments: true } }),
   ]);
   return (
     <div className="space-y-10">

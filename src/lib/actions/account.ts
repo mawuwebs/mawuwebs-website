@@ -13,6 +13,7 @@ import { signOut } from "@/lib/auth";
 import { requireUser } from "@/lib/require-admin";
 import { rateLimited } from "@/lib/rate-limit";
 import { sniffImage } from "@/lib/image-sniff";
+import { UPLOAD_ROOT } from "@/lib/uploads";
 import { logActivity } from "@/lib/activity-log";
 import { mailConfigured, sendMail, siteUrl } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
@@ -173,7 +174,7 @@ export async function resetPassword(_prev: AccountState, formData: FormData): Pr
 
 const AVATAR_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const AVATAR_MAX = 2 * 1024 * 1024;
-const AVATAR_DIR = path.join(process.cwd(), "public", "uploads", "avatars");
+const AVATAR_DIR = path.join(UPLOAD_ROOT, "avatars");
 
 async function removeAvatarFile(url: string | null | undefined) {
   if (!url?.startsWith("/uploads/avatars/")) return;

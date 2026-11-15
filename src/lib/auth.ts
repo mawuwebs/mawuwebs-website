@@ -14,6 +14,9 @@ const credentialsSchema = z.object({
   code: z.string().optional(),
 });
 
+const MAX_FAILED_LOGINS = 10;
+const LOCK_MS = 15 * 60_000;
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
@@ -37,15 +40,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: parsed.data.email },
+          where: { email: parsed.data.email.trim().toLowerCase() },
         });
         if (!user || user.disabledAt) return null;
+        // Per-account lockout that does not depend on the caller's IP.
+        if (user.lockedUntil && user.lockedUntil > new Date()) return null;
 
         const isValid = await bcrypt.compare(
           parsed.data.password,
           user.passwordHash
         );
-        if (!isValid) return null;
+        if (!isValid) {
+          const failed = user.failedLogins + 1;
+          await prisma.user.update({
+            where: { id: user.id },
+            data: failed >= MAX_FAILED_LOGINS
+              ? { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MS) }
+              : { failedLogins: failed },
+          });
+          return null;
+        }
 
         if (user.totpEnabled && user.totpSecret) {
           const code = (parsed.data.code ?? "").trim();
@@ -60,7 +74,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
-        await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+        await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), failedLogins: 0, lockedUntil: null } });
 
         return {
           id: user.id,

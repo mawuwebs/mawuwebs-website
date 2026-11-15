@@ -8,13 +8,13 @@ import { getSiteSettings } from "@/lib/settings";
 import { getSupportConfig } from "@/lib/form-config";
 
 const schema = z.object({
-  name: z.string().trim().min(2, "Please enter your name."),
-  email: z.string().trim().email("Enter a valid email address."),
+  name: z.string().trim().max(300, "That is too long.").min(2, "Please enter your name."),
+  email: z.string().trim().max(300, "That is too long.").email("Enter a valid email address."),
   phone: z.string().trim().min(6, "A phone number helps us reach you fast.").max(30),
   company: z.string().trim().max(120).optional(),
-  issue: z.string().trim().min(1, "Pick what the problem is about."),
-  urgency: z.string().trim().min(1, "Tell us how urgent it is."),
-  description: z.string().trim().min(10, "Describe the problem in a sentence or two."),
+  issue: z.string().trim().max(300, "That is too long.").min(1, "Pick what the problem is about."),
+  urgency: z.string().trim().max(300, "That is too long.").min(1, "Tell us how urgent it is."),
+  description: z.string().trim().max(5000, "That is too long.").min(10, "Describe the problem in a sentence or two."),
   company_website: z.string().max(0).optional(),
 });
 

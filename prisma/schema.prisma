@@ -51,6 +51,9 @@ model User {
   mustChangePassword Boolean  @default(false)
   lastLoginAt       DateTime?
   disabledAt        DateTime?
+  /// Consecutive wrong passwords; reset on success. Locks the account for a while at the limit.
+  failedLogins      Int       @default(0)
+  lockedUntil       DateTime?
   company           String    @default("")
   // Client profile (used for CLIENT users; empty for staff)
   phone             String    @default("")

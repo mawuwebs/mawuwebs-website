@@ -8,7 +8,7 @@ A modern, production-ready business website with a full custom CMS and admin das
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS v4 + shadcn/ui (Base UI primitives)
 - **Database:** Prisma ORM + SQLite (swap the datasource for Postgres/MySQL in production)
-- **Auth:** Auth.js (NextAuth v5) with credentials login, JWT sessions, role-based access (Admin/Editor)
+- **Auth:** Auth.js (NextAuth v5) with credentials login, JWT sessions, role-based access (Admin, Editor and client roles)
 - **Rich text:** Tiptap
 - **Media:** Local file uploads to `/public/uploads` (swap in Cloudinary/S3 by changing `src/lib/actions/media.ts`)
 
@@ -28,10 +28,7 @@ Visit:
 
 ### Demo accounts (from the seed script)
 
-| Role   | Email                    | Password    |
-| ------ | ------------------------ | ----------- |
-| Admin  | admin@mawuwebs.com       | printed by `npm run db:seed` (or set `SEED_ADMIN_PASSWORD`) |
-| Editor | editor@mawuwebs.com      | printed by `npm run db:seed` (or set `SEED_EDITOR_PASSWORD`) |
+Seeded sample admin and editor accounts print their generated passwords once when you run `npm run db:seed` (or set `SEED_ADMIN_PASSWORD` / `SEED_EDITOR_PASSWORD`). Client accounts are created from Admin > Clients and sign in to `/portal`.
 
 Change these in production — either edit them from **Admin → Users**, or update `prisma/seed.ts` before re-seeding.
 
@@ -108,7 +105,8 @@ Draft content never appears on the public site — all public queries (`src/lib/
 2. **Change the demo admin passwords**: `npm run admin:password -- admin@mawuwebs.com 'a-long-new-password'`. Do the same for the editor, or delete that user in Admin > Users.
 3. **Replace demo content** in the admin: address, phone, WhatsApp number, service area, support promise, hero stats, testimonials, projects, blog posts, and the privacy / terms pages (have them reviewed).
 4. **Database**: SQLite (`dev.db`) is for development. On a host without a persistent disk, move to PostgreSQL/MySQL: change the datasource in `prisma/schema.prisma`, the adapter in `src/lib/prisma.ts`, then `npx prisma migrate deploy`.
-5. **Uploads** go to `public/uploads`. Make sure that folder persists across deploys, or move uploads to object storage.
+5. **Uploads** go to `public/uploads`, or to `UPLOAD_DIR` if set, and are served by the `/uploads/[...path]` route so files added after the build work. Point `UPLOAD_DIR` at a folder that persists across deploys and include it in backups.
+5a. **Proxy headers**: set `TRUSTED_PROXY_HOPS` to the number of reverse proxies in front of the app (default 1) so rate limits use the real client IP. `GET /api/health` returns 200 when the app and database are up; point an uptime monitor at it.
 6. **Build and run**: `npm run build && npm start` (Node 20+). After changing `prisma/schema.prisma` run `npx prisma generate` and restart the server, otherwise it keeps the old client.
 7. **Weekly digest**: have a scheduler call `GET /api/cron/digest` with header `Authorization: Bearer $CRON_SECRET`.
 8. **Search and sharing**: submit `/sitemap.xml` to Google Search Console and create a Google Business Profile.
@@ -136,7 +134,7 @@ Draft content never appears on the public site — all public queries (`src/lib/
 - **Two-factor sign-in** (TOTP, any authenticator app): turn it on under *Account & security*. You get 8 single-use recovery codes. If an admin is locked out, `npm run admin:password` resets the password, and 2FA can be cleared in `npx prisma studio` (User: totpEnabled=false).
 - **Forgot password** emails a one-hour link (needs SMTP). Changing or resetting a password signs out all existing sessions. Without SMTP use `npm run admin:password -- <email> <new password>`.
 - **⌘K / Ctrl+K** opens quick search in the admin.
-- **Login rate limit** is in memory (per server process). It resets on restart and is not shared across several instances; use Redis/Upstash if you scale out.
+- **Login protection**: the IP rate limit is in memory (per process, resets on restart). On top of it, 10 wrong passwords lock that account for 15 minutes (stored in the database, so it survives restarts and does not depend on the IP).
 - **Dev tip**: never run `next build` while `next dev` is running; both write to `.next` and the dev server stops responding.
 - **Plans** (admin: Plans) are stored in the database: add, reorder, price, schedule, trash and restore them. The public Plans page and the plan enquiry form read from there. A request for a plan that was since unpublished is rejected with a clear message.
 - **Forms & estimates** (admin only) edits the Support form's issue and urgency options and the whole Estimate wizard (project types, sizes, features, timelines, scoring points, result tiers). "Work-stopping" marks the urgency level that is flagged as urgent. Internal ids stay stable so old enquiries still read correctly. "Reset to defaults" returns to the built-in values.

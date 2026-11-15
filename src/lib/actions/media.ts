@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireArea } from "@/lib/require-admin";
 import { getMediaUsage } from "@/lib/media-usage";
 import { sniffImage } from "@/lib/image-sniff";
+import { UPLOAD_ROOT } from "@/lib/uploads";
 import { logActivity } from "@/lib/activity-log";
 
 const ALLOWED_TYPES: Record<string, string> = {
@@ -18,7 +19,7 @@ const ALLOWED_TYPES: Record<string, string> = {
 };
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+const UPLOAD_DIR = UPLOAD_ROOT;
 
 export type UploadState = {
   success: boolean;

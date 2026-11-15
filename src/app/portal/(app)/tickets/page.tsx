@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 
 export default async function TicketsPage() {
   const user = await requirePortalUser();
-  const tickets = await prisma.ticket.findMany({ where: { userId: user.id }, orderBy: { updatedAt: "desc" } });
+  const tickets = await prisma.ticket.findMany({ where: { userId: user.id }, orderBy: { updatedAt: "desc" }, take: 200 });
   return (
     <div>
       <div className="flex items-center justify-between gap-4">

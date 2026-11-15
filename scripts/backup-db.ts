@@ -2,8 +2,11 @@
  * Consistent online backup of the SQLite database (safe while the site is running).
  *   npm run db:backup
  * Env: DATABASE_URL (file:./dev.db), BACKUP_DIR (default ./backups), BACKUP_KEEP (default 14).
+ * BACKUP_COPY_CMD (optional): shell command run after a good backup to ship it off the box; the file path is in $BACKUP_FILE,
+ *   e.g. BACKUP_COPY_CMD='rclone copyto "$BACKUP_FILE" remote:mawuwebs-backups/$(basename "$BACKUP_FILE")'. A failing command fails the job.
  * Schedule daily, then copy BACKUP_DIR off the server (a backup on the same disk is not a backup).
  */
+import { execSync } from "node:child_process";
 import { mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -38,6 +41,14 @@ async function main() {
   if (check !== "ok") {
     rmSync(dest);
     throw new Error(`Backup failed integrity check: ${String(check)}`);
+  }
+
+  const copyCmd = process.env.BACKUP_COPY_CMD?.trim();
+  if (copyCmd) {
+    execSync(copyCmd, { stdio: "inherit", env: { ...process.env, BACKUP_FILE: dest } });
+    console.log("Off-box copy command finished.");
+  } else {
+    console.warn("BACKUP_COPY_CMD is not set: this backup only exists on the same disk as the database.");
   }
 
   const old = readdirSync(dir)

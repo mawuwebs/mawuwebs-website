@@ -8,7 +8,7 @@ import { sendMail, mailConfigured, siteUrl } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
 
 const schema = z.object({
-  email: z.string().trim().toLowerCase().email("Enter a valid email address."),
+  email: z.string().trim().toLowerCase().max(300, "That is too long.").email("Enter a valid email address."),
   // Honeypot
   company_website: z.string().max(0).optional(),
   source: z.string().trim().max(100).optional(),
@@ -72,7 +72,7 @@ export async function subscribeToNewsletter(
 }
 
 export async function confirmSubscription(token: string) {
-  if (!token) return false;
+  if (!token || (await rateLimited("newsletter-token", 30, 60_000))) return false;
   const res = await prisma.newsletterSubscriber.updateMany({
     where: { token, confirmedAt: null },
     data: { confirmedAt: new Date(), unsubscribedAt: null },
@@ -82,7 +82,7 @@ export async function confirmSubscription(token: string) {
 }
 
 export async function unsubscribe(token: string) {
-  if (!token) return false;
+  if (!token || (await rateLimited("newsletter-token", 30, 60_000))) return false;
   // Keep the row as a suppression record: it stops a later import or resubscribe from silently re-adding them.
   const res = await prisma.newsletterSubscriber.updateMany({
     where: { token, unsubscribedAt: null },

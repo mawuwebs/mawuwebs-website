@@ -9,12 +9,12 @@ import { scoreEstimate } from "@/lib/estimate";
 import { getEstimateConfig } from "@/lib/form-config";
 
 const schema = z.object({
-  type: z.string().min(1),
-  size: z.string().optional(), // not asked for IT services
-  features: z.array(z.string()).default([]),
-  timeline: z.string().min(1),
-  name: z.string().trim().min(2, "Please enter your name."),
-  email: z.string().trim().email("Enter a valid email address."),
+  type: z.string().max(300, "That is too long.").min(1),
+  size: z.string().max(300, "That is too long.").optional(), // not asked for IT services
+  features: z.array(z.string()).max(40).default([]),
+  timeline: z.string().max(300, "That is too long.").min(1),
+  name: z.string().trim().max(300, "That is too long.").min(2, "Please enter your name."),
+  email: z.string().trim().max(300, "That is too long.").email("Enter a valid email address."),
   notes: z.string().trim().max(2000).optional(),
   company_website: z.string().max(0).optional(),
 });

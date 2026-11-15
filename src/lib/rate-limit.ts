@@ -4,9 +4,21 @@ import { headers } from "next/headers";
 // use Redis/Upstash if you scale to several instances.
 const hits = new Map<string, number[]>();
 
+/**
+ * Client IP. A client can put anything at the front of X-Forwarded-For, but each trusted proxy
+ * appends the address it saw to the END. TRUSTED_PROXY_HOPS (default 1) is how many proxies sit
+ * in front of this app; we read that many entries from the right. Set it to 0 when the app is
+ * exposed directly (the header is then ignored).
+ */
 export async function clientIp() {
   const h = await headers();
-  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
+  const hops = Math.max(0, Number(process.env.TRUSTED_PROXY_HOPS ?? 1) || 0);
+  if (hops === 0) return "unknown";
+  const cf = h.get("cf-connecting-ip")?.trim();
+  if (cf && process.env.TRUSTED_PROXY_CLOUDFLARE === "1") return cf;
+  const parts = (h.get("x-forwarded-for") ?? "").split(",").map((p) => p.trim()).filter(Boolean);
+  const fromRight = parts[parts.length - hops];
+  return fromRight || h.get("x-real-ip")?.trim() || "unknown";
 }
 
 /** Returns true when the caller is over the limit. */

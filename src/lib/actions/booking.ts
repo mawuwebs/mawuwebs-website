@@ -8,14 +8,14 @@ import { getSiteSettings } from "@/lib/settings";
 import { TOPICS, DAYS, WINDOWS, MODES } from "@/lib/booking";
 
 const schema = z.object({
-  name: z.string().trim().min(2, "Please enter your name."),
-  email: z.string().trim().email("Enter a valid email address."),
+  name: z.string().trim().max(300, "That is too long.").min(2, "Please enter your name."),
+  email: z.string().trim().max(300, "That is too long.").email("Enter a valid email address."),
   phone: z.string().trim().min(6, "A phone number helps us reach you.").max(30),
   company: z.string().trim().max(120).optional(),
   topic: z.enum(TOPICS, { message: "Pick a topic." }),
   mode: z.enum(MODES, { message: "Pick how you would like to talk." }),
   window: z.enum(WINDOWS, { message: "Pick a time of day." }),
-  days: z.array(z.enum(DAYS)).min(1, "Pick at least one day."),
+  days: z.array(z.enum(DAYS)).max(40).min(1, "Pick at least one day."),
   notes: z.string().trim().max(1500).optional(),
   company_website: z.string().max(0).optional(),
 });

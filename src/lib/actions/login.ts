@@ -32,8 +32,8 @@ export async function loginAction(
 
   // Second step only when the password is right and the account has 2FA on.
   if (!code && who && typeof password === "string") {
-    const u = await prisma.user.findUnique({ where: { email: String(email) }, select: { passwordHash: true, totpEnabled: true } });
-    if (u?.totpEnabled && (await bcrypt.compare(password, u.passwordHash))) {
+    const u = await prisma.user.findUnique({ where: { email: who }, select: { passwordHash: true, totpEnabled: true, lockedUntil: true } });
+    if (u?.totpEnabled && !(u.lockedUntil && u.lockedUntil > new Date()) && (await bcrypt.compare(password, u.passwordHash))) {
       return { error: "", needsCode: true };
     }
   }

@@ -7,11 +7,11 @@ import { sendMail, notifyEmail } from "@/lib/mail";
 import { getSiteSettings } from "@/lib/settings";
 
 const schema = z.object({
-  name: z.string().trim().min(2, "Please enter your full name."),
-  email: z.string().trim().email("Enter a valid email address."),
-  phone: z.string().trim().optional(),
-  subject: z.string().trim().optional(),
-  message: z.string().trim().min(10, "Message should be at least 10 characters."),
+  name: z.string().trim().max(300, "That is too long.").min(2, "Please enter your full name."),
+  email: z.string().trim().max(300, "That is too long.").email("Enter a valid email address."),
+  phone: z.string().trim().max(300, "That is too long.").optional(),
+  subject: z.string().trim().max(300, "That is too long.").optional(),
+  message: z.string().trim().max(5000, "That is too long.").min(10, "Message should be at least 10 characters."),
   // Honeypot field — bots fill it, humans never see it.
   company_website: z.string().max(0).optional(),
 });

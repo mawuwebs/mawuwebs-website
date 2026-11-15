@@ -9,8 +9,8 @@ import { getHealthCheckQuestions } from "@/lib/form-config";
 import { parseAnswers, scoreAnswers, type Result } from "@/lib/health-check";
 
 const schema = z.object({
-  name: z.string().trim().min(2, "Please enter your name."),
-  email: z.string().trim().email("Enter a valid email address."),
+  name: z.string().trim().max(300, "That is too long.").min(2, "Please enter your name."),
+  email: z.string().trim().max(300, "That is too long.").email("Enter a valid email address."),
   phone: z.string().trim().max(30).optional(),
   company: z.string().trim().min(2, "Tell us your company name.").max(120),
   company_website: z.string().max(0).optional(),

@@ -53,6 +53,8 @@ Writes a consistent, integrity-checked copy to `./backups` (override with `BACKU
 30 2 * * * cd /path/to/mawuwebs && npm run db:backup >> backups/backup.log 2>&1 && rclone copy backups remote:mawuwebs-backups --max-age 2d
 ```
 
+Simpler: set `BACKUP_COPY_CMD` (shell command, backup path in `$BACKUP_FILE`) and `db:backup` ships each backup off the box itself and exits non-zero if the copy fails. Also back up the uploads folder (`UPLOAD_DIR`, default `public/uploads`) and `RECEIPT_DIR`.
+
 Do one restore test: copy a backup over a scratch database and open it.
 
 ## 4. Gateway test mode

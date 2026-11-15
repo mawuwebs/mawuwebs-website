@@ -9,9 +9,9 @@ import { TEAM_SIZES } from "@/lib/plans";
 import { getPlans } from "@/lib/content";
 
 const schema = z.object({
-  plan: z.string().trim().min(1, "Pick a plan."),
-  name: z.string().trim().min(2, "Please enter your name."),
-  email: z.string().trim().email("Enter a valid email address."),
+  plan: z.string().trim().max(300, "That is too long.").min(1, "Pick a plan."),
+  name: z.string().trim().max(300, "That is too long.").min(2, "Please enter your name."),
+  email: z.string().trim().max(300, "That is too long.").email("Enter a valid email address."),
   phone: z.string().trim().min(6, "A phone number helps us reach you.").max(30),
   company: z.string().trim().min(2, "Tell us your company name.").max(120),
   teamSize: z.enum(TEAM_SIZES, { message: "Pick your team size." }),

@@ -9,13 +9,13 @@ import { getSiteSettings } from "@/lib/settings";
 import { BRIEF_TYPES, BRIEF_TIMELINES } from "@/lib/brief";
 
 const schema = z.object({
-  name: z.string().trim().min(2, "Please enter your name."),
-  email: z.string().trim().email("Enter a valid email address."),
+  name: z.string().trim().max(300, "That is too long.").min(2, "Please enter your name."),
+  email: z.string().trim().max(300, "That is too long.").email("Enter a valid email address."),
   company: z.string().trim().max(120).optional(),
   type: z.enum(BRIEF_TYPES, { message: "Pick what you need." }),
   timeline: z.enum(BRIEF_TIMELINES, { message: "Pick a timeline." }),
   budget: z.string().trim().max(120).optional(),
-  description: z.string().trim().min(20, "Give us a few sentences (at least 20 characters)."),
+  description: z.string().trim().max(5000, "That is too long.").min(20, "Give us a few sentences (at least 20 characters)."),
   link: z.string().trim().max(300).optional(),
   company_website: z.string().max(0).optional(),
 });
