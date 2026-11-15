@@ -89,7 +89,7 @@ export default async function PlansPage() {
         </div>
         <div className="mt-20">
           <h2 id="compare" className="scroll-mt-24 font-display text-2xl font-bold">Compare plans</h2>
-          <div className="mt-6 overflow-x-auto rounded-2xl border border-border">
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-border" tabIndex={0} role="region" aria-labelledby="compare">
             <table className="w-full min-w-[34rem] text-left text-sm">
               <caption className="sr-only">Features included in each managed IT plan</caption>
               <thead className="bg-secondary/60">

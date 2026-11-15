@@ -9,7 +9,7 @@ export default function AdminAuthLayout({ children }: { children: React.ReactNod
             "radial-gradient(circle at 15% 20%, rgba(252,125,20,0.35), transparent 45%), radial-gradient(circle at 85% 80%, rgba(250,242,160,0.15), transparent 40%)",
         }}
       />
-      <div className="relative w-full max-w-md">{children}</div>
+      <main className="relative w-full max-w-md">{children}</main>
     </div>
   );
 }

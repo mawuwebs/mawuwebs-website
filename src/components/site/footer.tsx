@@ -65,13 +65,13 @@ export async function Footer() {
             <ul className="mt-6 space-y-2.5 text-sm text-white/80">
               <li className="flex items-center gap-2">
                 <Mail className="size-4 shrink-0 text-orange" />
-                <a href={`mailto:${settings.contactEmail}`} className="hover:text-white">
+                <a href={`mailto:${settings.contactEmail}`} className="inline-block py-1 hover:text-white">
                   {settings.contactEmail}
                 </a>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="size-4 shrink-0 text-orange" />
-                <a href={`tel:${settings.phone.replace(/[^\d+]/g, "")}`} className="hover:text-white">
+                <a href={`tel:${settings.phone.replace(/[^\d+]/g, "")}`} className="inline-block py-1 hover:text-white">
                   {settings.phone}
                 </a>
               </li>
@@ -103,11 +103,11 @@ export async function Footer() {
 
           {FOOTER_COLUMNS.map((col) => (
             <div key={col.title}>
-              <h3 className="font-display text-sm font-semibold text-white">{col.title}</h3>
-              <ul className="mt-4 space-y-2.5 text-sm">
+              <h2 className="font-display text-sm font-semibold text-white">{col.title}</h2>
+              <ul className="mt-3 text-sm">
                 {col.links.map((link) => (
                   <li key={link.href}>
-                    <Link href={link.href} className="inline-block text-white/70 transition-all duration-200 hover:translate-x-1 hover:text-white">
+                    <Link href={link.href} className="inline-block py-1.5 text-white/70 transition-all duration-200 hover:translate-x-1 hover:text-white">
                       {link.label}
                     </Link>
                   </li>
@@ -120,9 +120,9 @@ export async function Footer() {
         {settings.newsletterEnabled && (
           <div className="mt-14 flex flex-col gap-4 border-t border-white/10 pt-10 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="font-display text-base font-semibold text-white">
+              <h2 className="font-display text-base font-semibold text-white">
                 Stay in the loop
-              </h3>
+              </h2>
               <p className="mt-1 text-sm text-white/70">
                 Occasional tips on IT, security, web and growth. No spam.
               </p>

@@ -123,7 +123,7 @@ export default async function ProjectDetailPage({
 
           <div className="space-y-6">
             <div className="rounded-2xl border border-border bg-secondary/50 p-7">
-              <h3 className="font-display text-lg font-semibold">Project details</h3>
+              <h2 className="font-display text-lg font-semibold">Project details</h2>
               <dl className="mt-5 space-y-4 text-sm">
                 {project.client && (
                   <div>
@@ -190,7 +190,7 @@ export default async function ProjectDetailPage({
           <div className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-3">
             {project.challenge && (
               <div className="rounded-2xl border border-border bg-card p-7">
-                <h3 className="font-display text-lg font-semibold">The challenge</h3>
+                <h2 className="font-display text-lg font-semibold">The challenge</h2>
                 <p className="mt-3 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
                   {project.challenge}
                 </p>
@@ -198,7 +198,7 @@ export default async function ProjectDetailPage({
             )}
             {project.solution && (
               <div className="rounded-2xl border border-border bg-card p-7">
-                <h3 className="font-display text-lg font-semibold">What we did</h3>
+                <h2 className="font-display text-lg font-semibold">What we did</h2>
                 <p className="mt-3 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
                   {project.solution}
                 </p>
@@ -206,7 +206,7 @@ export default async function ProjectDetailPage({
             )}
             {results.length > 0 && (
               <div className="rounded-2xl bg-forest p-7 text-white">
-                <h3 className="font-display text-lg font-semibold">Results</h3>
+                <h2 className="font-display text-lg font-semibold">Results</h2>
                 <dl className="mt-4 space-y-4">
                   {results.map((r) => (
                     <div key={r.label}>

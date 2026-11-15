@@ -1,3 +1,4 @@
+import { MapEmbed } from "@/components/site/map-embed";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail, Phone, MapPin, Clock, CalendarDays, LifeBuoy } from "lucide-react";
@@ -132,15 +133,7 @@ export default async function ContactPage() {
 
       {settings.mapEmbedUrl && (
         <Section className="pt-0">
-          <div className="overflow-hidden rounded-2xl border border-border">
-            <iframe
-              src={settings.mapEmbedUrl}
-              title="Office location map"
-              className="h-96 w-full"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </div>
+          <MapEmbed src={settings.mapEmbedUrl} address={settings.address} />
         </Section>
       )}
     </>

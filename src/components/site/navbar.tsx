@@ -104,7 +104,7 @@ export function Navbar({
           <ThemeToggle />
           <Sheet>
             <SheetTrigger
-              render={<Button variant="ghost" size="icon" aria-label="Open menu" />}
+              render={<Button variant="ghost" size="icon" className="size-10" aria-label="Open menu" />}
             >
               <Menu className="size-5" />
             </SheetTrigger>

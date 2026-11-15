@@ -31,7 +31,7 @@ export function CtaBanner({
           {ctaText}
           <ArrowRight className="size-4 transition-transform group-hover/button:translate-x-1" />
         </Button>
-        <Link href="/estimate" className="text-sm font-medium text-forest underline underline-offset-4">
+        <Link href="/estimate" className="inline-block py-2.5 text-sm font-medium text-forest underline underline-offset-4">
           Or get a rough estimate first
         </Link>
       </Container>

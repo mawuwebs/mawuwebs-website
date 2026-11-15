@@ -92,7 +92,7 @@ export function SearchDialog({ className }: { className?: string }) {
         onClick={() => setOpen(true)}
         aria-label="Search the site"
         className={cn(
-          "inline-flex h-9 items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+          "inline-flex h-10 min-w-10 items-center justify-center gap-2 sm:h-9 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
           className
         )}
       >
