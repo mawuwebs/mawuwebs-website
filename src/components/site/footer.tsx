@@ -118,33 +118,41 @@ export async function Footer() {
         </div>
 
         {settings.newsletterEnabled && (
-          <div className="mt-14 flex flex-col gap-4 border-t border-white/10 pt-10 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="font-display text-base font-semibold text-white">
-                Stay in the loop
-              </h2>
-              <p className="mt-1 text-sm text-white/70">
-                Occasional tips on IT, security, web and growth. No spam.
-              </p>
+          <div className="mt-14 flex flex-col gap-6 rounded-2xl border border-white/10 bg-white/[0.04] p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+            <div className="flex items-start gap-4">
+              <span
+                aria-hidden
+                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--brand-orange)]/15 text-[var(--brand-orange)]"
+              >
+                <Mail className="size-5" />
+              </span>
+              <div>
+                <h2 className="font-display text-lg font-semibold text-white">Stay in the loop</h2>
+                <p className="mt-1 text-sm text-white/70">
+                  Occasional tips on IT, security, web and growth. No spam, unsubscribe any time.
+                </p>
+              </div>
             </div>
-            <NewsletterForm className="w-full max-w-sm" />
+            <NewsletterForm className="w-full lg:max-w-md" onDark />
           </div>
         )}
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-8 text-xs text-white/60 sm:flex-row">
+        <div className="mt-10 flex flex-col items-center gap-4 border-t border-white/10 pt-8 text-xs text-white/60 sm:flex-row sm:justify-between">
           <p>
             &copy; {new Date().getFullYear()} {settings.siteName}. All rights reserved.
           </p>
-          <p className="flex items-center gap-1.5">
+          <a
+            href="https://mawuwebs.cloud"
+            aria-label="Proudly powered by mawuWEBS"
+            className="group inline-flex min-h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1 pr-3.5 pl-3 transition-colors hover:border-[var(--brand-orange)]/60 hover:bg-white/[0.08] focus-visible:border-[var(--brand-orange)]/60"
+          >
+            <span aria-hidden className="size-1.5 rounded-full bg-[var(--brand-orange)]" />
             <span>Proudly powered by</span>
-            <a
-              href="https://mawuwebs.cloud"
-              className="inline-flex min-h-6 items-center font-semibold tracking-tight text-white transition-colors hover:text-[var(--brand-orange)] focus-visible:text-[var(--brand-orange)]"
-            >
+            <span className="font-display text-sm font-semibold tracking-tight text-white">
               mawu<span className="text-[var(--brand-orange)]">WEBS</span>
-            </a>
-          </p>
-                  </div>
+            </span>
+          </a>
+        </div>
       </Container>
     </footer>
   );
