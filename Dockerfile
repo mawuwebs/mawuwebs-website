@@ -16,7 +16,7 @@ ARG NEXT_PUBLIC_PLAUSIBLE_DOMAIN=""
 ENV NEXT_PUBLIC_PLAUSIBLE_DOMAIN=$NEXT_PUBLIC_PLAUSIBLE_DOMAIN
 ARG AUTH_URL=""
 ENV AUTH_URL=$AUTH_URL
-RUN DATABASE_URL=file:/tmp/build.db sh -c "npx prisma migrate deploy && npm run build"
+RUN DATABASE_URL=file:/tmp/build.db sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts >/dev/null && npm run build"
 
 ENV NODE_ENV=production
 EXPOSE 3000
