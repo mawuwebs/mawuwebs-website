@@ -4,21 +4,12 @@ import { PageHeader } from "@/components/site/page-header";
 import { Section } from "@/components/site/container";
 import { RichText } from "@/components/site/rich-text";
 import { Breadcrumbs } from "@/components/site/breadcrumbs";
-import { getPageBySlug, live } from "@/lib/content";
-import { prisma } from "@/lib/prisma";
-import { buildMetadata, siteUrl, SYSTEM_PAGE_SLUGS } from "@/lib/seo";
+import { getPageBySlug } from "@/lib/content";
+import { buildMetadata, siteUrl } from "@/lib/seo";
 import { ldJson } from "@/lib/sanitize";
 
 export const dynamicParams = true;
 export const dynamic = "force-dynamic";
-
-export async function generateStaticParams() {
-  const pages = await prisma.page.findMany({
-    where: { ...live(), slug: { notIn: SYSTEM_PAGE_SLUGS } },
-    select: { slug: true },
-  });
-  return pages.map((p) => ({ slug: p.slug }));
-}
 
 export async function generateMetadata({
   params,
