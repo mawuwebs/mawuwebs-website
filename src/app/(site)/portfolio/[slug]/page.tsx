@@ -219,10 +219,20 @@ export default async function ProjectDetailPage({
         {results.length > 0 && (
           <div className="mt-14 rounded-2xl bg-forest p-8 text-white">
             <h2 className="font-display text-lg font-semibold">Results</h2>
-            <dl className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            <dl
+              className={`mt-6 grid grid-cols-1 gap-8 ${
+                results.length === 1
+                  ? ""
+                  : results.length === 2
+                    ? "sm:grid-cols-2"
+                    : results.length === 3
+                      ? "sm:grid-cols-3"
+                      : "sm:grid-cols-2 lg:grid-cols-4"
+              }`}
+            >
               {results.map((r) => (
-                <div key={r.label}>
-                  <dd className="font-display text-4xl font-bold text-yellow">{r.value}</dd>
+                <div key={r.label} className={results.length > 1 ? "border-l-2 border-yellow/40 pl-5" : ""}>
+                  <dd className="font-display text-4xl font-bold text-yellow sm:text-5xl">{r.value}</dd>
                   <dt className="mt-1 text-sm text-white/70">{r.label}</dt>
                 </div>
               ))}
