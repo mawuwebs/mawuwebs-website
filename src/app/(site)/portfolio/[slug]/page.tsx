@@ -3,6 +3,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, ExternalLink, Rocket } from "lucide-react";
+import { ProjectShowcase } from "@/components/site/project-showcase";
+import { ProjectGallery } from "@/components/site/project-gallery";
+import { NewsletterForm } from "@/components/site/newsletter-form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Section } from "@/components/site/container";
@@ -11,7 +14,7 @@ import { Illustration } from "@/components/site/illustrations";
 import { RichText } from "@/components/site/rich-text";
 import { ProjectCard } from "@/components/site/project-card";
 import { CtaBanner } from "@/components/site/cta-banner";
-import { getProjectBySlug, getRelatedProjects, getNextProject, live } from "@/lib/content";
+import { getProjectBySlug, getRelatedProjects, getAdjacentProjects, live } from "@/lib/content";
 import { getSiteSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 import { ldJson } from "@/lib/sanitize";
@@ -50,9 +53,9 @@ export default async function ProjectDetailPage({
   const project = await getProjectBySlug(slug);
   if (!project) notFound();
 
-  const [related, next, settings] = await Promise.all([
+  const [related, { prev, next }, settings] = await Promise.all([
     getRelatedProjects(project.id, project.categoryId, 3),
-    getNextProject(project.id),
+    getAdjacentProjects(project.id),
     getSiteSettings(),
   ]);
 
@@ -76,6 +79,13 @@ export default async function ProjectDetailPage({
   // Skip the body when it only repeats the header description.
   const hasBody = plain(project.content) !== "" && plain(project.content) !== plain(project.description);
   const hasStory = Boolean(project.challenge || project.solution);
+  const mobileShot = gallery.find((g) => /mobile/i.test(g));
+  const facts = [
+    { label: "Client", value: project.client },
+    { label: "Year", value: project.year },
+    { label: "Our role", value: project.role },
+    { label: "Category", value: project.category?.name },
+  ].filter((f): f is { label: string; value: string } => Boolean(f.value));
 
   const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
   const jsonLd = {
@@ -112,29 +122,24 @@ export default async function ProjectDetailPage({
       />
 
       <Section>
+        {facts.length > 0 && (
+          <dl className="mb-10 grid grid-cols-2 gap-x-6 gap-y-5 rounded-2xl border border-border bg-secondary/50 p-6 sm:grid-cols-4">
+            {facts.map((f) => (
+              <div key={f.label}>
+                <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{f.label}</dt>
+                <dd className="mt-1 text-sm font-semibold sm:text-base">{f.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
         {project.featuredImage && (
-          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xl shadow-forest/10">
-            <div className="flex items-center gap-1.5 border-b border-border bg-secondary/70 px-4 py-3" aria-hidden>
-              <span className="size-2.5 rounded-full bg-foreground/15" />
-              <span className="size-2.5 rounded-full bg-foreground/15" />
-              <span className="size-2.5 rounded-full bg-foreground/15" />
-              {project.projectUrl && (
-                <span className="ml-3 truncate rounded-md bg-background px-3 py-1 text-xs text-muted-foreground">
-                  {project.projectUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                </span>
-              )}
-            </div>
-            <div className="relative aspect-[16/10] w-full">
-              <Image
-                src={project.featuredImage}
-                alt={`${displayTitle} preview`}
-                fill
-                priority
-                sizes="(min-width: 1280px) 1152px, 100vw"
-                className="object-cover object-top"
-              />
-            </div>
-          </div>
+          <ProjectShowcase
+            title={displayTitle}
+            desktop={project.featuredImage}
+            mobile={mobileShot}
+            url={project.projectUrl}
+          />
         )}
 
         <div className="mt-14 grid grid-cols-1 gap-10 lg:grid-cols-[1.25fr_0.75fr] lg:gap-14">
@@ -157,75 +162,58 @@ export default async function ProjectDetailPage({
             )}
           </div>
 
-          <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+          <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
             <div className="rounded-2xl border border-border bg-secondary/50 p-7">
-              {comingSoon && (
-                <p className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-orange)]/15 px-3 py-1 text-xs font-semibold text-foreground">
-                  <Rocket className="size-3.5" aria-hidden />
-                  Launching soon
-                </p>
-              )}
-              <h2 className="font-display text-lg font-semibold">Project details</h2>
-              <dl className="mt-5 space-y-4 text-sm">
-                {project.client && (
-                  <div>
-                    <dt className="text-muted-foreground">Client</dt>
-                    <dd className="mt-0.5 font-medium">{project.client}</dd>
-                  </div>
-                )}
-                {project.year && (
-                  <div>
-                    <dt className="text-muted-foreground">Year</dt>
-                    <dd className="mt-0.5 font-medium">{project.year}</dd>
-                  </div>
-                )}
-                {project.role && (
-                  <div>
-                    <dt className="text-muted-foreground">Our role</dt>
-                    <dd className="mt-0.5 font-medium">{project.role}</dd>
-                  </div>
-                )}
-                {project.category && (
-                  <div>
-                    <dt className="text-muted-foreground">Category</dt>
-                    <dd className="mt-0.5 font-medium">{project.category.name}</dd>
-                  </div>
-                )}
-                {project.tags.length > 0 && (
-                  <div>
-                    <dt className="text-muted-foreground">Tags</dt>
-                    <dd className="mt-2 flex flex-wrap gap-1.5">
-                      {project.tags.map((t) => (
-                        <Badge key={t.id} variant="outline">
-                          {t.name}
-                        </Badge>
-                      ))}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-              {project.projectUrl && (
-                <Button
-                  render={
-                    <a href={project.projectUrl} target="_blank" rel="noopener noreferrer" />
-                  }
-                  variant="outline"
-                  className="mt-6 w-full"
-                >
-                  Visit live site
-                  <ExternalLink className="size-4" />
-                </Button>
-              )}
-              {!project.projectUrl && project.title.includes("coming soon") && (
-                <Button render={<Link href="/contact#message" />} className="mt-6 w-full">
-                  Join the waitlist
-                </Button>
+              {comingSoon ? (
+                <>
+                  <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-orange)]/15 px-3 py-1 text-xs font-semibold">
+                    <Rocket className="size-3.5" aria-hidden />
+                    Launching soon
+                  </p>
+                  <h2 className="font-display text-lg font-semibold">Be first to know</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Leave your email and we&apos;ll tell you the day {displayTitle} launches. No spam.
+                  </p>
+                  <NewsletterForm className="mt-4" />
+                </>
+              ) : (
+                <>
+                  <h2 className="font-display text-lg font-semibold">Want something like this?</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Tell us what you need and we&apos;ll reply within one business day.
+                  </p>
+                  {project.projectUrl && (
+                    <Button
+                      render={<a href={project.projectUrl} target="_blank" rel="noopener noreferrer" />}
+                      variant="outline"
+                      className="mt-5 w-full"
+                    >
+                      Visit live site
+                      <ExternalLink className="size-4" />
+                    </Button>
+                  )}
+                </>
               )}
               <Button render={<Link href="/start-a-project" />} className="mt-3 w-full">
                 Start a similar project
               </Button>
+              <Button render={<Link href="/book-a-call" />} variant="ghost" className="mt-1 w-full">
+                Or book a free call
+              </Button>
+              {project.tags.length > 0 && (
+                <div className="mt-6 border-t border-border pt-5">
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Built with</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {project.tags.map((t) => (
+                      <Badge key={t.id} variant="outline">
+                        {t.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          </aside>
         </div>
 
         {results.length > 0 && (
@@ -245,43 +233,48 @@ export default async function ProjectDetailPage({
         {gallery.length > 0 && (
           <div className="mt-14">
             <h2 className="font-display text-xl font-semibold">Screens</h2>
-            <div
-              className={`mt-5 grid grid-cols-1 gap-5 ${
-                gallery.length === 1 ? "" : gallery.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"
-              }`}
-            >
-              {gallery.map((src, i) => {
-                const phone = /mobile/i.test(src);
-                return (
-                  <div
-                    key={i}
-                    className={`relative aspect-[4/3] overflow-hidden rounded-xl border border-border ${phone ? "bg-forest" : "bg-secondary/50"}`}
-                  >
-                    <Image
-                      src={src}
-                      alt={`${displayTitle} ${phone ? "mobile " : ""}screenshot ${i + 1}`}
-                      fill
-                      sizes="(min-width: 640px) 50vw, 100vw"
-                      className={phone ? "object-contain py-3" : "object-cover object-top"}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+            <ProjectGallery title={displayTitle} images={gallery} />
           </div>
         )}
 
-        <div className="mt-14 flex flex-wrap items-center justify-between gap-4">
+        {(prev || next) && (
+          <nav aria-label="More projects" className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {[
+              prev && { p: prev, dir: "Previous project", href: `/portfolio/${prev.slug}` },
+              next && { p: next, dir: "Next project", href: `/portfolio/${next.slug}` },
+            ]
+              .filter(Boolean)
+              .map((x) => {
+                const n = x as { p: NonNullable<typeof prev>; dir: string; href: string };
+                return (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-3 transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-lg"
+                  >
+                    <div className="relative size-24 shrink-0 overflow-hidden rounded-xl bg-muted">
+                      {n.p.featuredImage && (
+                        <Image src={n.p.featuredImage} alt="" fill sizes="96px" className="object-cover object-top transition-transform duration-500 group-hover:scale-105" />
+                      )}
+                    </div>
+                    <div className="min-w-0 pr-2">
+                      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{n.dir}</p>
+                      <p className="mt-1 truncate font-display text-lg font-semibold">{n.p.title.replace(/\s*\(coming soon\)/i, "")}</p>
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-sm text-accent-foreground/80">
+                        View project <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+          </nav>
+        )}
+
+        <div className="mt-8">
           <Button render={<Link href="/portfolio" />} variant="ghost">
             <ArrowLeft className="size-4" />
-            Back to portfolio
+            All projects
           </Button>
-          {next && (
-            <Button render={<Link href={`/portfolio/${next.slug}`} />} variant="outline">
-              Next: {next.title}
-              <ArrowRight className="size-4" />
-            </Button>
-          )}
         </div>
       </Section>
 

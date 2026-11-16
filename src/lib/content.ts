@@ -221,6 +221,21 @@ export async function getNextProject(id: string) {
   return all[(i + 1) % all.length];
 }
 
+/** Previous and next published projects in portfolio order (wraps around). */
+export async function getAdjacentProjects(id: string) {
+  const all = await prisma.project.findMany({
+    where: { ...live() },
+    orderBy: [{ order: "asc" }, { publishedAt: "desc" }],
+    include: { category: true, tags: true },
+  });
+  if (all.length < 2) return { prev: null, next: null };
+  const i = all.findIndex((p) => p.id === id);
+  if (i === -1) return { prev: null, next: null };
+  const next = all[(i + 1) % all.length];
+  const prev = all[(i - 1 + all.length) % all.length];
+  return { prev: prev.id === next.id ? null : prev, next };
+}
+
 export async function searchSite(q: string) {
   const term = q.trim();
   if (term.length < 2) return { services: [], projects: [], posts: [] };
