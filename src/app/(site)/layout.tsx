@@ -10,6 +10,9 @@ import { getSiteSettings } from "@/lib/settings";
 import { siteUrl } from "@/lib/seo";
 import { ldJson } from "@/lib/sanitize";
 
+// Content lives in the runtime DB (prod volume), so never prerender it at build time.
+export const dynamic = "force-dynamic";
+
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const settings = await getSiteSettings();
 

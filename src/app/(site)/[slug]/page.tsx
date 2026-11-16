@@ -10,6 +10,7 @@ import { buildMetadata, siteUrl, SYSTEM_PAGE_SLUGS } from "@/lib/seo";
 import { ldJson } from "@/lib/sanitize";
 
 export const dynamicParams = true;
+export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
   const pages = await prisma.page.findMany({
