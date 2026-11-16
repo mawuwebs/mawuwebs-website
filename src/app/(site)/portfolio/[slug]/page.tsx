@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Section } from "@/components/site/container";
@@ -70,6 +70,13 @@ export default async function ProjectDetailPage({
     results = [];
   }
 
+  const comingSoon = /coming soon/i.test(project.title);
+  const displayTitle = project.title.replace(/\s*\(coming soon\)/i, "").trim();
+  const plain = (h: string) => h.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+  // Skip the body when it only repeats the header description.
+  const hasBody = plain(project.content) !== "" && plain(project.content) !== plain(project.description);
+  const hasStory = Boolean(project.challenge || project.solution);
+
   const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
   const jsonLd = {
     "@context": "https://schema.org",
@@ -93,8 +100,8 @@ export default async function ProjectDetailPage({
         dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }}
       />
       <PageHeader
-        eyebrow={project.category?.name ?? "Project"}
-        title={project.title}
+        eyebrow={`${project.category?.name ?? "Project"}${comingSoon ? " · Coming soon" : ""}`}
+        title={displayTitle}
         description={project.description}
         breadcrumbs={[
           { label: "Home", href: "/" },
@@ -106,23 +113,58 @@ export default async function ProjectDetailPage({
 
       <Section>
         {project.featuredImage && (
-          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-border">
-            <Image
-              src={project.featuredImage}
-              alt={project.title}
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-            />
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xl shadow-forest/10">
+            <div className="flex items-center gap-1.5 border-b border-border bg-secondary/70 px-4 py-3" aria-hidden>
+              <span className="size-2.5 rounded-full bg-foreground/15" />
+              <span className="size-2.5 rounded-full bg-foreground/15" />
+              <span className="size-2.5 rounded-full bg-foreground/15" />
+              {project.projectUrl && (
+                <span className="ml-3 truncate rounded-md bg-background px-3 py-1 text-xs text-muted-foreground">
+                  {project.projectUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                </span>
+              )}
+            </div>
+            <div className="relative aspect-[16/10] w-full">
+              <Image
+                src={project.featuredImage}
+                alt={`${displayTitle} preview`}
+                fill
+                priority
+                sizes="(min-width: 1280px) 1152px, 100vw"
+                className="object-cover object-top"
+              />
+            </div>
           </div>
         )}
 
-        <div className="mt-14 grid grid-cols-1 gap-14 lg:grid-cols-[1.1fr_0.9fr]">
-          <RichText html={project.content} className="max-w-none" />
+        <div className="mt-14 grid grid-cols-1 gap-10 lg:grid-cols-[1.25fr_0.75fr] lg:gap-14">
+          <div className="space-y-8">
+            {hasBody && <RichText html={project.content} className="max-w-none" />}
+            {project.challenge && (
+              <div>
+                <h2 className="font-display text-xl font-semibold">The challenge</h2>
+                <p className="mt-3 leading-relaxed whitespace-pre-line text-muted-foreground">{project.challenge}</p>
+              </div>
+            )}
+            {project.solution && (
+              <div className="border-t border-border pt-8">
+                <h2 className="font-display text-xl font-semibold">What we did</h2>
+                <p className="mt-3 leading-relaxed whitespace-pre-line text-muted-foreground">{project.solution}</p>
+              </div>
+            )}
+            {!hasBody && !hasStory && (
+              <p className="leading-relaxed text-muted-foreground">{project.description}</p>
+            )}
+          </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             <div className="rounded-2xl border border-border bg-secondary/50 p-7">
+              {comingSoon && (
+                <p className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-orange)]/15 px-3 py-1 text-xs font-semibold text-foreground">
+                  <Rocket className="size-3.5" aria-hidden />
+                  Launching soon
+                </p>
+              )}
               <h2 className="font-display text-lg font-semibold">Project details</h2>
               <dl className="mt-5 space-y-4 text-sm">
                 {project.client && (
@@ -186,56 +228,46 @@ export default async function ProjectDetailPage({
           </div>
         </div>
 
-        {(project.challenge || project.solution || results.length > 0) && (
-          <div className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {project.challenge && (
-              <div className="rounded-2xl border border-border bg-card p-7">
-                <h2 className="font-display text-lg font-semibold">The challenge</h2>
-                <p className="mt-3 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
-                  {project.challenge}
-                </p>
-              </div>
-            )}
-            {project.solution && (
-              <div className="rounded-2xl border border-border bg-card p-7">
-                <h2 className="font-display text-lg font-semibold">What we did</h2>
-                <p className="mt-3 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
-                  {project.solution}
-                </p>
-              </div>
-            )}
-            {results.length > 0 && (
-              <div className="rounded-2xl bg-forest p-7 text-white">
-                <h2 className="font-display text-lg font-semibold">Results</h2>
-                <dl className="mt-4 space-y-4">
-                  {results.map((r) => (
-                    <div key={r.label}>
-                      <dd className="font-display text-3xl font-bold text-yellow">{r.value}</dd>
-                      <dt className="text-sm text-white/70">{r.label}</dt>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            )}
+        {results.length > 0 && (
+          <div className="mt-14 rounded-2xl bg-forest p-8 text-white">
+            <h2 className="font-display text-lg font-semibold">Results</h2>
+            <dl className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-3">
+              {results.map((r) => (
+                <div key={r.label}>
+                  <dd className="font-display text-4xl font-bold text-yellow">{r.value}</dd>
+                  <dt className="mt-1 text-sm text-white/70">{r.label}</dt>
+                </div>
+              ))}
+            </dl>
           </div>
         )}
 
         {gallery.length > 0 && (
-          <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {gallery.map((src, i) => (
-              <div
-                key={i}
-                className="relative aspect-[4/3] overflow-hidden rounded-xl border border-border"
-              >
-                <Image
-                  src={src}
-                  alt={`${project.title} screenshot ${i + 1}`}
-                  fill
-                  sizes="(min-width: 640px) 33vw, 100vw"
-                  className="object-cover object-top"
-                />
-              </div>
-            ))}
+          <div className="mt-14">
+            <h2 className="font-display text-xl font-semibold">Screens</h2>
+            <div
+              className={`mt-5 grid grid-cols-1 gap-5 ${
+                gallery.length === 1 ? "" : gallery.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"
+              }`}
+            >
+              {gallery.map((src, i) => {
+                const phone = /mobile/i.test(src);
+                return (
+                  <div
+                    key={i}
+                    className={`relative aspect-[4/3] overflow-hidden rounded-xl border border-border ${phone ? "bg-forest" : "bg-secondary/50"}`}
+                  >
+                    <Image
+                      src={src}
+                      alt={`${displayTitle} ${phone ? "mobile " : ""}screenshot ${i + 1}`}
+                      fill
+                      sizes="(min-width: 640px) 50vw, 100vw"
+                      className={phone ? "object-contain py-3" : "object-cover object-top"}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
