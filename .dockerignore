@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.env*
+!.env.example
+*.db
+test-results
+e2e
+.agents
+.claude
+.windsurf
+marketing
+tsconfig.tsbuildinfo
+public/uploads/*
+!public/uploads/.gitkeep

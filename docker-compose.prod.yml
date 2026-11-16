@@ -1,0 +1,27 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        AUTH_URL: https://mawuwebs.cloud
+    container_name: mawuwebs_web
+    restart: unless-stopped
+    env_file: .env.production
+    volumes:
+      - /opt/mawuwebs/data:/data
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.mawuwebs-web.rule=Host(`mawuwebs.cloud`) || Host(`www.mawuwebs.cloud`)
+      - traefik.http.routers.mawuwebs-web.entrypoints=web
+      - traefik.http.routers.mawuwebs-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.mawuwebs-websecure.rule=Host(`mawuwebs.cloud`) || Host(`www.mawuwebs.cloud`)
+      - traefik.http.routers.mawuwebs-websecure.entrypoints=websecure
+      - traefik.http.routers.mawuwebs-websecure.tls.certresolver=letsencrypt
+      - traefik.http.services.mawuwebs.loadbalancer.server.port=3000
+
+networks:
+  dokploy-network:
+    external: true
