@@ -131,9 +131,12 @@ export async function Footer() {
           </div>
         )}
 
-        <div className="mt-10 flex flex-col items-center gap-4 border-t border-white/10 pt-8 text-xs text-white/60 sm:flex-row sm:justify-between">
-          <p>
-            &copy; {new Date().getFullYear()} {settings.siteName}. All rights reserved.
+        <div className="mt-10 flex flex-col items-center gap-4 border-t border-white/10 pt-8 text-[13px] text-white/60 sm:flex-row sm:justify-between">
+          <p className="text-center sm:text-left">
+            <span className="tabular-nums">&copy; {new Date().getFullYear()}</span>{" "}
+            <span className="font-semibold text-white">{settings.siteName}</span>
+            <span aria-hidden className="mx-2 text-white/30">&middot;</span>
+            <span className="whitespace-nowrap">All rights reserved</span>
           </p>
           <a
             href="https://mawuwebs.cloud"
