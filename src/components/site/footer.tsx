@@ -135,7 +135,7 @@ export async function Footer() {
           <p>
             &copy; {new Date().getFullYear()} {settings.siteName}. All rights reserved.
           </p>
-          <p>Built with care for ambitious businesses.</p>
+          <p>Proudly Powered By mawuWEBS</p>
                   </div>
       </Container>
     </footer>
