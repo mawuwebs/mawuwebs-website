@@ -135,7 +135,15 @@ export async function Footer() {
           <p>
             &copy; {new Date().getFullYear()} {settings.siteName}. All rights reserved.
           </p>
-          <p>Proudly Powered By mawuWEBS</p>
+          <p className="flex items-center gap-1.5">
+            <span>Proudly powered by</span>
+            <a
+              href="https://mawuwebs.cloud"
+              className="inline-flex min-h-6 items-center font-semibold tracking-tight text-white transition-colors hover:text-[var(--brand-orange)] focus-visible:text-[var(--brand-orange)]"
+            >
+              mawu<span className="text-[var(--brand-orange)]">WEBS</span>
+            </a>
+          </p>
                   </div>
       </Container>
     </footer>
