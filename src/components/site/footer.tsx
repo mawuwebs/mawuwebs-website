@@ -118,22 +118,16 @@ export async function Footer() {
         </div>
 
         {settings.newsletterEnabled && (
-          <div className="mt-14 flex flex-col gap-6 rounded-2xl border border-white/10 bg-white/[0.04] p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
-            <div className="flex items-start gap-4">
-              <span
-                aria-hidden
-                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--brand-orange)]/15 text-[var(--brand-orange)]"
-              >
-                <Mail className="size-5" />
-              </span>
-              <div>
-                <h2 className="font-display text-lg font-semibold text-white">Stay in the loop</h2>
-                <p className="mt-1 text-sm text-white/70">
-                  Occasional tips on IT, security, web and growth. No spam, unsubscribe any time.
-                </p>
-              </div>
+          <div className="mt-14 flex flex-col gap-4 border-t border-white/10 pt-10 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-display text-base font-semibold text-white">
+                Stay in the loop
+              </h2>
+              <p className="mt-1 text-sm text-white/70">
+                Occasional tips on IT, security, web and growth. No spam.
+              </p>
             </div>
-            <NewsletterForm className="w-full lg:max-w-md" onDark />
+            <NewsletterForm className="w-full max-w-sm" />
           </div>
         )}
 

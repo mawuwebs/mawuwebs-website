@@ -12,7 +12,7 @@ import {
 
 const initialState: NewsletterState = { success: false, message: "" };
 
-export function NewsletterForm({ className, onDark = false }: { className?: string; onDark?: boolean }) {
+export function NewsletterForm({ className }: { className?: string }) {
   const [state, formAction, pending] = useActionState(
     subscribeToNewsletter,
     initialState
@@ -54,11 +54,7 @@ export function NewsletterForm({ className, onDark = false }: { className?: stri
       {state.message && (
         <p
           role="status"
-          className={`mt-2 text-sm ${
-            state.success
-              ? onDark ? "text-emerald-300" : "text-success"
-              : onDark ? "text-red-300" : "text-destructive"
-          }`}
+          className={`mt-2 text-sm ${state.success ? "text-success" : "text-destructive"}`}
         >
           {state.message}
         </p>
